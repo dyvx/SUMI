@@ -377,3 +377,59 @@ body {
 ::selection {
   background: rgba(139, 92, 246, 0.4);
 }
+
+/* ---------- Performance: lighten expensive effects on small screens ---------- */
+@media (max-width: 640px) {
+  .glass,
+  .glass-strong,
+  .glass-panel {
+    /* Full-strength backdrop blur is the #1 jank source on phones. */
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+  }
+  .card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* Keep long grids cheap to paint. */
+.grid > * {
+  content-visibility: auto;
+  contain-intrinsic-size: 240px;
+}
+
+/* Reader pages must never repaint the whole document on scroll. */
+.prose-surface p {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 40px;
+}
+
+/* GPU hint only where we actually animate. */
+.card,
+.nav-float,
+.tabbar {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Smoother, faster tap feedback on touch. */
+@media (hover: none) {
+  .btn:active,
+  .card:active {
+    transform: scale(0.97);
+    transition-duration: 90ms;
+  }
+}
+
+/* Focus ring that works on glass without looking like a browser default. */
+:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, 0.75);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+/* Line-clamp helper used by several components. */
+.line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

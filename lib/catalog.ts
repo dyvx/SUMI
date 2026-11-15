@@ -3,12 +3,13 @@ import { anilist } from "./providers/anilist";
 import { mangadex } from "./providers/mangadex";
 import { openlibrary } from "./providers/openlibrary";
 import { gutenberg } from "./providers/gutenberg";
+import { wikisource } from "./providers/wikisource";
 import { vndb } from "./providers/vndb";
 import type { ProviderAdapter } from "./providers/base";
 import { CATEGORIES, mediaKind, normalizeTitle } from "./types";
 import type { Category, MediaItem, Provider } from "./types";
 
-export const PROVIDERS: ProviderAdapter[] = [gutenberg, anilist, mangadex, vndb, openlibrary];
+export const PROVIDERS: ProviderAdapter[] = [gutenberg, wikisource, anilist, mangadex, vndb, openlibrary];
 
 /** Per-provider health, updated on every live call. */
 export interface Health {
@@ -186,12 +187,13 @@ export async function buildHomeRows(): Promise<{ rows: Row[]; degraded: Provider
     }
   };
 
-  const [aniTrending, mdTrending, vnTop, books, publicDomain] = await Promise.all([
+  const [aniTrending, mdTrending, vnTop, books, publicDomain, wiki] = await Promise.all([
     safe("anilist", () => anilist.trending!(12)),
     safe("mangadex", () => mangadex.trending!(12)),
     safe("vndb", () => vndb.trending!(10)),
     safe("openlibrary", () => openlibrary.search("light novel", 10)),
     safe("gutenberg", () => gutenberg.trending!(14)),
+    safe("wikisource", () => wikisource.search("literature", 10)),
   ]);
 
   const pool = [...aniTrending, ...mdTrending, ...vnTop, ...books].filter((m) => m.cover);
@@ -199,6 +201,7 @@ export async function buildHomeRows(): Promise<{ rows: Row[]; degraded: Provider
 
   const rows: Row[] = [
     { id: "public-domain", title: "Read in full — public domain", subtitle: "Complete books with real text, free and legal", items: publicDomain },
+    { id: "wikisource", title: "From Wikisource", subtitle: "Public-domain works across languages", items: wiki },
     { id: "trending", title: "Trending now", subtitle: "What the world is reading", items: aniTrending.slice(0, 12) },
     { id: "popular-manga", title: "Popular manga", subtitle: "Japanese serializations", items: byCat("manga") },
     { id: "popular-manhwa", title: "Popular manhwa", subtitle: "Korean webcomics", items: byCat("manhwa") },

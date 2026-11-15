@@ -87,6 +87,8 @@ export function Nav() {
 
 export function TabBar() {
   const pathname = usePathname();
+  // Readers are full-screen experiences; the tab bar would overlap their toolbar.
+  if (pathname.startsWith("/reader")) return null;
   const items = [
     { href: "/", label: "Home", icon: "M3 11l9-8 9 8v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" },
     { href: "/explore", label: "Explore", icon: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm3.5 5.5-2 5-5 2 2-5z" },

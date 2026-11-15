@@ -85,8 +85,11 @@ function stripHtml(s: string | null): string | null {
 }
 
 function toItem(m: AniMedia): MediaItem {
-  const alt = [m.title.english, m.title.native].filter(
-    (x): x is string => !!x && x !== m.title.romaji
+  // Include romaji even when it is not the display title — MangaDex indexes
+  // many works only under their romanised name (e.g. "Na Honjaman Level-Up").
+  const display = m.title.english ?? m.title.romaji ?? m.title.native ?? "Untitled";
+  const alt = [m.title.romaji, m.title.english, m.title.native].filter(
+    (x): x is string => !!x && x !== display
   );
   const staffRole = (role: string) =>
     m.staff?.edges.find((e) => e.role.toLowerCase().includes(role))?.node.name.full ?? null;

@@ -12,6 +12,7 @@ const DEFAULT: AppData = {
   settings: {
     homepageSections: [
       "public-domain",
+      "wikisource",
       "trending",
       "popular-manga",
       "popular-manhwa",

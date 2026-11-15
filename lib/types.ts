@@ -27,7 +27,14 @@ export const CATEGORIES: { id: Category; label: string; kind: "comic" | "prose" 
   { id: "one-shot", label: "One-shots", kind: "comic" },
 ];
 
-export type Provider = "anilist" | "mangadex" | "openlibrary" | "vndb" | "gutenberg" | "manual";
+export type Provider =
+  | "anilist"
+  | "mangadex"
+  | "openlibrary"
+  | "vndb"
+  | "gutenberg"
+  | "wikisource"
+  | "manual";
 
 export interface MediaItem {
   /** Stable internal id: `${provider}:${providerId}` */
@@ -59,6 +66,8 @@ export interface MediaItem {
   attribution: string;
   /** True when this entry has full readable text (not just metadata). */
   readable?: boolean;
+  /** Related titles/adaptations from the provider (real relations, never invented). */
+  related?: { title: string; relation: string; cover: string | null; url: string | null }[];
   updatedAt: string;
 }
 

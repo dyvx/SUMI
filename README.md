@@ -33,6 +33,40 @@ unaffected. Durable persistence requires Supabase — apply `db/schema.sql`.
 
 ---
 
+## v3 — reading sources, properly resolved
+
+The dead-end you hit (`/reader/comic/anilist:63327` → "Reader unavailable") was a real
+architectural gap: AniList and MangaDex do not share IDs, so metadata-only titles had no
+source attached. Fixed with a cross-provider resolver.
+
+**`lib/resolve.ts` + `GET /api/resolve`** find the MangaDex edition that genuinely matches a
+metadata title. Matching is deliberately strict:
+
+- Candidate **primary title only** — alt-titles are ignored, because spinoffs list the parent
+  series there (that is how *Jujutsu Kaisen Modulo* would otherwise pose as *Jujutsu Kaisen*).
+- Same-story edition qualifiers (`(Official Colored)`, `[Deluxe]`) are stripped; different-work
+  markers (`(Oneshot)`, `(Fan Colored)`, `:re`, `Modulo`) are refused.
+- Chapters are only counted when they contain **page images**; MangaDex keeps rows with
+  `pages: 0` for removed chapters, which would promise a reader that loads nothing.
+- Romanised titles fold together (`Toukyou Ghoul` ↔ `Tokyo Ghoul`, `Na Honjaman Level-Up` ↔
+  `Solo Leveling`) so real matches still succeed.
+
+Verified against live data:
+
+| Title | Result |
+|---|---|
+| Chainsaw Man | ✅ 93 chapters with images, 53-page chapter loads from CDN |
+| One Piece | ✅ 7 chapters (the plain entry; most of it is removed) |
+| Jujutsu Kaisen | ✅ Official Colored edition, 4 chapters |
+| Tokyo Ghoul | ⛔ honestly none — `(Oneshot)` and `:re` are correctly refused |
+| Solo Leveling / Berserk | ⛔ none — entries exist but no English pages remain |
+
+**Reader UX rebuilt:** a resolving state, a real "no readable source" screen with alternatives
+and next actions, source-attribution in the toolbar, and page zoom. The tab bar no longer
+overlays readers.
+
+---
+
 ## v2 — what changed
 
 - **Real book reading.** A new Project Gutenberg adapter serves genuine public-domain

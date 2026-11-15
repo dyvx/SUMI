@@ -14,8 +14,15 @@ interface Page {
   url: string;
   page: number;
 }
+interface Resolution {
+  found: boolean;
+  best: { mangadexId: string; title: string; chapters: number; score: number } | null;
+  candidates: { mangadexId: string; title: string; chapters: number; score: number }[];
+  reason?: string;
+}
 
 type Mode = "vertical" | "single" | "double";
+type Phase = "resolving" | "loading" | "ready" | "empty" | "error";
 
 export function ComicReader({
   item,
@@ -26,48 +33,79 @@ export function ComicReader({
   initialChapter?: string;
   startPercent: number;
 }) {
+  const [phase, setPhase] = useState<Phase>("resolving");
+  const [resolution, setResolution] = useState<Resolution | null>(null);
+  const [sourceId, setSourceId] = useState<string | null>(
+    item.provider === "mangadex" ? item.providerId : null
+  );
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [chapterId, setChapterId] = useState<string | null>(initialChapter ?? null);
   const [pages, setPages] = useState<Page[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("vertical");
   const [direction, setDirection] = useState<"ltr" | "rtl">("rtl");
   const [index, setIndex] = useState(0);
   const [showUI, setShowUI] = useState(true);
   const [percent, setPercent] = useState(startPercent);
+  const [zoom, setZoom] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // Load chapter list
+  /* ---------- 1. resolve a reading source when the provider has none ---------- */
   useEffect(() => {
-    if (item.provider !== "mangadex") {
-      setLoading(false);
-      setError("This title has no reading source. Attach an authorized source in Admin.");
+    let alive = true;
+
+    if (item.provider === "mangadex") {
+      setPhase("loading");
       return;
     }
+
+    fetch(`/api/resolve?id=${encodeURIComponent(item.id)}`)
+      .then((r) => r.json())
+      .then((d: Resolution) => {
+        if (!alive) return;
+        setResolution(d);
+        if (d.found && d.best) {
+          setSourceId(d.best.mangadexId);
+          setPhase("loading");
+        } else {
+          setPhase("empty");
+        }
+      })
+      .catch(() => alive && setPhase("empty"));
+
+    return () => {
+      alive = false;
+    };
+  }, [item.id, item.provider]);
+
+  /* ---------- 2. load chapter list ---------- */
+  useEffect(() => {
+    if (!sourceId) return;
     let alive = true;
-    fetch(`/api/chapter?mangaId=${encodeURIComponent(item.providerId)}`)
+    fetch(`/api/chapter?mangaId=${encodeURIComponent(sourceId)}`)
       .then((r) => r.json())
       .then((d) => {
         if (!alive) return;
         const list: Chapter[] = d.chapters ?? [];
         setChapters(list);
-        setChapterId((prev) => prev ?? list[0]?.id ?? null);
-        if (!list.length) setError("No chapters are indexed for this title.");
+        setChapterId((prev) => (prev && list.some((c) => c.id === prev) ? prev : list[0]?.id ?? null));
+        if (!list.length) {
+          setPhase("empty");
+          setError("This source has no readable English chapters.");
+        }
       })
-      .catch(() => alive && setError("Could not load the chapter list."))
-      .finally(() => alive && setLoading(false));
+      .catch(() => alive && alive && setPhase("error"))
+      .finally(() => alive && undefined);
     return () => {
       alive = false;
     };
-  }, [item.provider, item.providerId]);
+  }, [sourceId]);
 
-  // Load pages for the active chapter
+  /* ---------- 3. load pages ---------- */
   useEffect(() => {
     if (!chapterId) return;
     let alive = true;
-    setLoading(true);
+    setPhase("loading");
     setError(null);
     fetch(`/api/chapter?chapterId=${encodeURIComponent(chapterId)}`)
       .then((r) => r.json())
@@ -76,9 +114,13 @@ export function ComicReader({
         if (d.error) throw new Error(d.error);
         setPages(d.pages ?? []);
         setIndex(0);
+        setPhase("ready");
       })
-      .catch(() => alive && setError("Could not load pages for this chapter."))
-      .finally(() => alive && setLoading(false));
+      .catch((e) => {
+        if (!alive) return;
+        setError(e instanceof Error ? e.message : "Could not load pages.");
+        setPhase("error");
+      });
     return () => {
       alive = false;
     };
@@ -106,16 +148,13 @@ export function ComicReader({
     [item.id, chapterNumber, pages.length]
   );
 
-  // Vertical scroll progress tracking
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     const max = el.scrollHeight - el.clientHeight;
-    const pct = max > 0 ? Math.min(100, (el.scrollTop / max) * 100) : 0;
-    setPercent(pct);
+    setPercent(max > 0 ? Math.min(100, (el.scrollTop / max) * 100) : 0);
   }, []);
 
-  // Debounced progress save
   useEffect(() => {
     const t = setTimeout(() => {
       if (pages.length) save(index + 1, percent);
@@ -123,10 +162,9 @@ export function ComicReader({
     return () => clearTimeout(t);
   }, [percent, index, pages.length, save]);
 
-  // Track which page is visible in vertical mode
+  // Track the visible page in vertical mode.
   useEffect(() => {
-    if (mode !== "vertical") return;
-    observerRef.current?.disconnect();
+    if (mode !== "vertical" || phase !== "ready") return;
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
@@ -139,34 +177,33 @@ export function ComicReader({
       { rootMargin: "-45% 0px -45% 0px" }
     );
     scrollRef.current?.querySelectorAll("[data-page]").forEach((n) => io.observe(n));
-    observerRef.current = io;
     return () => io.disconnect();
-  }, [mode, pages]);
+  }, [mode, pages, phase]);
 
-  // Keyboard navigation
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (mode === "vertical") return;
-      const forward = direction === "ltr" ? "ArrowRight" : "ArrowLeft";
-      const back = direction === "ltr" ? "ArrowLeft" : "ArrowRight";
-      if (e.key === forward) setIndex((i) => Math.min(pages.length - 1, i + (mode === "double" ? 2 : 1)));
-      if (e.key === back) setIndex((i) => Math.max(0, i - (mode === "double" ? 2 : 1)));
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [mode, direction, pages.length]);
-
-  // Preload the next few pages so page turns feel instant.
+  // Preload the next pages so turns feel instant.
   useEffect(() => {
     if (mode === "vertical" || !pages.length) return;
-    const ahead = mode === "double" ? 4 : 3;
-    for (let n = index; n < Math.min(pages.length, index + ahead); n++) {
+    for (let n = index; n < Math.min(pages.length, index + 4); n++) {
       const img = new Image();
       img.src = pages[n].url;
     }
   }, [index, mode, pages]);
 
-  // Touch swipe for paged modes.
+  // Keyboard navigation.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (mode === "vertical") return;
+      const step = mode === "double" ? 2 : 1;
+      const fwd = direction === "ltr" ? "ArrowRight" : "ArrowLeft";
+      const back = direction === "ltr" ? "ArrowLeft" : "ArrowRight";
+      if (e.key === fwd) setIndex((i) => Math.min(pages.length - 1, i + step));
+      if (e.key === back) setIndex((i) => Math.max(0, i - step));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mode, direction, pages.length]);
+
+  // Touch swipe.
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
@@ -180,15 +217,27 @@ export function ComicReader({
     touchStart.current = null;
     if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
     const step = mode === "double" ? 2 : 1;
-    // A left swipe advances in LTR, goes back in RTL.
     const forward = direction === "ltr" ? dx < 0 : dx > 0;
-    setIndex((i) => forward ? Math.min(pages.length - 1, i + step) : Math.max(0, i - step));
+    setIndex((i) => (forward ? Math.min(pages.length - 1, i + step) : Math.max(0, i - step)));
   };
 
   const currentIdx = chapters.findIndex((c) => c.id === chapterId);
   const prevChapter = currentIdx > 0 ? chapters[currentIdx - 1] : null;
   const nextChapter = currentIdx >= 0 && currentIdx < chapters.length - 1 ? chapters[currentIdx + 1] : null;
   const visible = mode === "double" ? pages.slice(index, index + 2) : pages.slice(index, index + 1);
+
+  /* ------------------------------- non-reading phases ------------------------------- */
+  if (phase === "resolving") {
+    return <ReaderShell item={item}><ResolvingState /></ReaderShell>;
+  }
+
+  if (phase === "empty" || (phase === "error" && !pages.length)) {
+    return (
+      <ReaderShell item={item}>
+        <NoSourceState item={item} resolution={resolution} message={error} />
+      </ReaderShell>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#050507]">
@@ -204,14 +253,16 @@ export function ComicReader({
         </Link>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-semibold">{item.title}</p>
-          <p className="text-[11px] text-white/40">
+          <p className="truncate text-[11px] text-white/40">
             {chapterNumber ? `Chapter ${chapterNumber}` : "Oneshot"} · {pages.length} pages
+            {resolution?.found && <span className="text-emerald-300/70"> · via MangaDex</span>}
           </p>
         </div>
         <select
           value={chapterId ?? ""}
           onChange={(e) => setChapterId(e.target.value)}
-          className="max-w-[130px] rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-[12px] outline-none backdrop-blur"
+          className="max-w-[120px] rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-[12px] text-white outline-none backdrop-blur"
+          aria-label="Chapter"
         >
           {chapters.map((c) => (
             <option key={c.id} value={c.id} className="bg-[#12121a]">
@@ -230,22 +281,16 @@ export function ComicReader({
         onClick={() => setShowUI((v) => !v)}
         className={`flex-1 ${mode === "vertical" ? "overflow-y-auto" : "grid place-items-center overflow-hidden"}`}
       >
-        {loading && (
+        {phase === "loading" && (
           <div className="grid h-full place-items-center">
-            <div className="skeleton h-[70vh] w-[min(92vw,620px)] rounded-2xl" />
-          </div>
-        )}
-        {error && !loading && (
-          <div className="mx-auto max-w-md px-6 text-center">
-            <p className="text-[15px] font-semibold">Reader unavailable</p>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-white/50">{error}</p>
-            <Link href={`/title/${encodeURIComponent(item.id)}`} className="btn btn-glass mt-4">
-              Back to details
-            </Link>
+            <div className="w-[min(92vw,620px)] space-y-2">
+              <div className="skeleton h-[62vh] rounded-2xl" />
+              <p className="text-center text-[11.5px] text-white/35">Loading pages…</p>
+            </div>
           </div>
         )}
 
-        {!loading && !error && mode === "vertical" && (
+        {phase === "ready" && mode === "vertical" && (
           <div className="mx-auto flex max-w-[820px] flex-col gap-1 py-1">
             {pages.map((p) => (
               <div key={p.page} data-page={p.page} className="relative">
@@ -256,23 +301,36 @@ export function ComicReader({
                   loading={p.page <= 2 ? "eager" : "lazy"}
                   decoding="async"
                   className="w-full select-none"
+                  style={{ transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: "top center" }}
                 />
               </div>
             ))}
             <div className="flex items-center justify-between gap-2 p-5">
-              <button disabled={!prevChapter} onClick={() => setChapterId(prevChapter!.id)} className="btn btn-glass disabled:opacity-30">
+              <button
+                disabled={!prevChapter}
+                onClick={() => setChapterId(prevChapter!.id)}
+                className="btn btn-glass disabled:opacity-30"
+              >
                 ← Previous
               </button>
               <span className="text-[12px] text-white/35">End of chapter</span>
-              <button disabled={!nextChapter} onClick={() => setChapterId(nextChapter!.id)} className="btn btn-primary disabled:opacity-30">
+              <button
+                disabled={!nextChapter}
+                onClick={() => setChapterId(nextChapter!.id)}
+                className="btn btn-primary disabled:opacity-30"
+              >
                 Next chapter →
               </button>
             </div>
           </div>
         )}
 
-        {!loading && !error && mode !== "vertical" && (
-          <div className={`flex h-full w-full items-center justify-center gap-1 p-2 ${direction === "rtl" ? "flex-row-reverse" : ""}`}>
+        {phase === "ready" && mode !== "vertical" && (
+          <div
+            className={`flex h-full w-full items-center justify-center gap-1 p-2 ${
+              direction === "rtl" ? "flex-row-reverse" : ""
+            }`}
+          >
             {visible.map((p) => (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -304,7 +362,10 @@ export function ComicReader({
         </button>
         <div className="flex-1">
           <div className="h-1 overflow-hidden rounded-full bg-white/15">
-            <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-crimson-500 transition-[width] duration-200" style={{ width: `${percent}%` }} />
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-violet-500 to-rose-500 transition-[width] duration-200"
+              style={{ width: `${percent}%` }}
+            />
           </div>
           <p className="mt-1 text-center text-[10.5px] text-white/40">
             {pages.length ? `${Math.min(index + 1, pages.length)} / ${pages.length}` : "—"} · {Math.round(percent)}%
@@ -335,12 +396,20 @@ export function ComicReader({
         <select
           value={mode}
           onChange={(e) => setMode(e.target.value as Mode)}
-          className="rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-[11px] sm:hidden"
+          className="rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-[11px] text-white sm:hidden"
+          aria-label="Reading mode"
         >
           <option value="vertical" className="bg-[#12121a]">Webtoon</option>
           <option value="single" className="bg-[#12121a]">Single</option>
           <option value="double" className="bg-[#12121a]">Double</option>
         </select>
+        <button
+          onClick={() => setZoom((z) => (z >= 1.6 ? 1 : +(z + 0.3).toFixed(1)))}
+          className="btn btn-glass !px-2.5 !py-1.5 text-[11px] font-bold"
+          title="Zoom"
+        >
+          {zoom}×
+        </button>
         <button
           onClick={() => setDirection((d) => (d === "rtl" ? "ltr" : "rtl"))}
           className="btn btn-glass !px-2.5 !py-1.5 text-[11px] font-bold"
@@ -348,6 +417,112 @@ export function ComicReader({
         >
           {direction.toUpperCase()}
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------ presentational ------------------------------ */
+
+function ReaderShell({ item, children }: { item: MediaItem; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#050507]">
+      <div
+        className="glass-strong absolute inset-x-0 top-0 z-30 flex items-center gap-2 px-3 py-2"
+        style={{ paddingTop: "calc(0.5rem + var(--safe-t))" }}
+      >
+        <Link href={`/title/${encodeURIComponent(item.id)}`} className="btn btn-glass h-9 w-9 !p-0" aria-label="Back">
+          ←
+        </Link>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-semibold">{item.title}</p>
+          <p className="truncate text-[11px] text-white/40">Locating a reading source…</p>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto">{children}</div>
+    </div>
+  );
+}
+
+function ResolvingState() {
+  return (
+    <div className="mx-auto max-w-md px-6 pt-28">
+      <div className="flex flex-col items-center text-center">
+        <span className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-violet-400" />
+        <p className="text-[15px] font-semibold">Finding a reading source</p>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-white/45">
+          This title came from a metadata provider. Checking MangaDex for a matching edition…
+        </p>
+      </div>
+      <div className="mt-8 space-y-2">
+        <div className="skeleton h-3 w-2/3 rounded" />
+        <div className="skeleton h-3 w-full rounded" />
+        <div className="skeleton h-3 w-5/6 rounded" />
+      </div>
+    </div>
+  );
+}
+
+function NoSourceState({
+  item,
+  resolution,
+  message,
+}: {
+  item: MediaItem;
+  resolution: Resolution | null;
+  message: string | null;
+}) {
+  const alt = (resolution?.candidates ?? []).filter((c) => c.chapters > 0);
+  return (
+    <div className="mx-auto max-w-lg px-5 pt-24 pb-16">
+      <div className="glass-panel p-5 text-center">
+        <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/5 text-xl">
+          🔍
+        </div>
+        <h1 className="text-[17px] font-bold tracking-tight">No readable chapters found</h1>
+        <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-white/50">
+          {message ?? resolution?.reason ?? "No matching reading source was found for this title."}
+        </p>
+        <p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-white/35">
+          Animus shows metadata for every title, but only reads what a source actually publishes —
+          it does not fabricate pages or host copyrighted material.
+        </p>
+      </div>
+
+      {alt.length > 0 && (
+        <div className="glass-panel mt-3 p-4">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-white/40">
+            Other editions with chapters
+          </p>
+          <div className="space-y-1.5">
+            {alt.map((c) => (
+              <div key={c.mangadexId} className="flex items-center justify-between gap-2 rounded-xl bg-white/[0.05] px-3 py-2">
+                <span className="truncate text-[12.5px]">{c.title}</span>
+                <span className="shrink-0 text-[11px] text-white/35">{c.chapters} ch</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Link href="/explore?category=web-novel" className="btn btn-primary">
+          Readable books
+        </Link>
+        <Link href={`/title/${encodeURIComponent(item.id)}`} className="btn btn-glass">
+          Back to details
+        </Link>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <Link href="/explore?category=manga" className="btn btn-glass">
+          Browse manga
+        </Link>
+        <Link
+          href={`/search?q=${encodeURIComponent(item.title)}`}
+          className="btn btn-glass"
+        >
+          Search this title
+        </Link>
       </div>
     </div>
   );

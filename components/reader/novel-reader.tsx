@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MediaItem } from "@/lib/types";
+import { AudioDock, type Track } from "./audio-player";
 
 interface ChapterMeta {
   index: number;
@@ -48,6 +49,9 @@ export function NovelReader({
   const [toc, setToc] = useState(false);
   const [percent, setPercent] = useState(startPercent);
   const [bookmarked, setBookmarked] = useState(false);
+  const [tracks, setTracks] = useState<Track[] | null>(null);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioOpen, setAudioOpen] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
   const t = THEMES[theme];
 
@@ -78,7 +82,7 @@ export function NovelReader({
   useEffect(() => {
     if (!hasRealText) return;
     let alive = true;
-    fetch(`/api/novel?id=${encodeURIComponent(item.providerId)}`)
+    fetch(`/api/text?id=${encodeURIComponent(item.id)}`)
       .then((r) => r.json())
       .then((d) => {
         if (!alive) return;
@@ -90,7 +94,7 @@ export function NovelReader({
     return () => {
       alive = false;
     };
-  }, [item.providerId, hasRealText]);
+  }, [item.id, hasRealText]);
 
   // Chapter body
   useEffect(() => {
@@ -98,7 +102,7 @@ export function NovelReader({
     let alive = true;
     setLoading(true);
     setError(null);
-    fetch(`/api/novel?id=${encodeURIComponent(item.providerId)}&chapter=${ch}`)
+    fetch(`/api/text?id=${encodeURIComponent(item.id)}&chapter=${ch}`)
       .then((r) => r.json())
       .then((d) => {
         if (!alive) return;
@@ -112,7 +116,7 @@ export function NovelReader({
     return () => {
       alive = false;
     };
-  }, [item.providerId, ch, hasRealText]);
+  }, [item.id, ch, hasRealText]);
 
   const save = useCallback(
     (pct: number) => {
@@ -203,6 +207,33 @@ export function NovelReader({
             style={{ borderColor: t.dim, background: theme === "light" ? "rgba(0,0,0,.05)" : "rgba(0,0,0,.35)", color: t.fg }}
           >
             Contents
+          </button>
+          <button
+            onClick={async () => {
+              if (tracks) { setAudioOpen((v) => !v); return; }
+              setAudioLoading(true);
+              try {
+                const r = await fetch(`/api/audio?title=${encodeURIComponent(item.title)}`);
+                const d = await r.json();
+                if (d.available && d.book?.tracks?.length) {
+                  setTracks(d.book.tracks);
+                  setAudioOpen(true);
+                } else {
+                  setTracks([]);
+                  setAudioOpen(true);
+                }
+              } catch {
+                setTracks([]);
+                setAudioOpen(true);
+              } finally {
+                setAudioLoading(false);
+              }
+            }}
+            className="rounded-full border px-3 py-1.5 text-[11.5px] font-semibold backdrop-blur-xl"
+            style={{ borderColor: t.dim, background: theme === "light" ? "rgba(0,0,0,.05)" : "rgba(0,0,0,.35)", color: t.fg }}
+            title="Listen (LibriVox audiobook)"
+          >
+            {audioLoading ? "…" : "🎧"}
           </button>
           <button
             onClick={() => setSettings((v) => !v)}
@@ -359,6 +390,16 @@ export function NovelReader({
             Next →
           </button>
         </nav>
+
+        {audioOpen && tracks && tracks.length > 0 && (
+          <AudioDock tracks={tracks} bookTitle={item.title} onClose={() => setAudioOpen(false)} />
+        )}
+        {audioOpen && tracks && tracks.length === 0 && (
+          <div className="glass-strong fixed inset-x-3 bottom-4 z-50 mx-auto max-w-sm rounded-2xl p-3 text-center text-[12.5px] text-white/70">
+            No LibriVox recording found for this title.
+            <button onClick={() => setAudioOpen(false)} className="ml-2 text-violet-300">Dismiss</button>
+          </div>
+        )}
       </article>
     </div>
   );

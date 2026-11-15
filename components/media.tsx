@@ -28,20 +28,36 @@ export function Cover({ item, className = "", priority = false }: { item: MediaI
 export function MediaCard({ item, width = 148 }: { item: MediaItem; width?: number }) {
   const alt = (item as MediaItem & { meta?: { altProviders?: string[] } }).meta?.altProviders ?? [];
   return (
-    <Link href={`/title/${encodeURIComponent(item.id)}`} className="card group block" style={{ width }}>
+    <Link
+      href={`/title/${encodeURIComponent(item.id)}`}
+      className="card group block"
+      style={{ width }}
+      prefetch={false}
+    >
       <div className="relative aspect-[2/3]">
         <Cover item={item} className="h-full w-full" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/92 via-black/30 to-transparent" />
+
+        {/* score ring */}
         {item.score ? (
-          <span className="absolute right-1.5 top-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold backdrop-blur">
-            {item.score}
+          <span className="absolute right-1.5 top-1.5 rounded-full border border-white/15 bg-black/65 px-1.5 py-0.5 text-[10px] font-bold tabular-nums backdrop-blur-md">
+            {(item.score / 10).toFixed(1)}
           </span>
         ) : null}
+
+        {item.readable && (
+          <span className="absolute left-1.5 top-1.5 rounded-full border border-emerald-300/30 bg-emerald-500/25 px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-wider text-emerald-100 backdrop-blur-md">
+            Read
+          </span>
+        )}
+
         <div className="absolute inset-x-0 bottom-0 p-2.5">
-          <p className="card-title text-white">{item.title}</p>
+          <p className="card-title text-white drop-shadow">{item.title}</p>
           <div className="mt-1 flex items-center gap-1.5 text-[10px] text-white/55">
             <span className="truncate">{CATEGORIES.find((c) => c.id === item.category)?.label}</span>
-            {alt.length > 0 && <span className="shrink-0 rounded bg-white/10 px-1 text-[9px] uppercase">+{alt.length}</span>}
+            {alt.length > 0 && (
+              <span className="shrink-0 rounded bg-white/12 px-1 text-[9px] uppercase">+{alt.length}</span>
+            )}
           </div>
         </div>
       </div>

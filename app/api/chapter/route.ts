@@ -14,8 +14,10 @@ export async function GET(req: Request) {
   const chapterId = url.searchParams.get("chapterId");
   try {
     if (mangaId) {
-      const chapters = await mangadexChapters(mangaId, url.searchParams.get("lang") ?? "en");
-      return NextResponse.json({ chapters });
+      const all = await mangadexChapters(mangaId, url.searchParams.get("lang") ?? "en");
+      // Drop rows with no images — they are dead entries and would break the reader.
+      const chapters = all.filter((c) => c.pages > 0);
+      return NextResponse.json({ chapters, hidden: all.length - chapters.length });
     }
     if (chapterId) {
       const pages = await mangadexPageUrls(chapterId);
