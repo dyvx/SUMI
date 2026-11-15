@@ -13,7 +13,11 @@ to run it.
 - **URL:** https://sumi-ruby.vercel.app
 - **GitHub:** https://github.com/dyvx/SUMI
 - **Vercel project:** `sumi` (`prj_rFFvgvCTGQ44YyWv6SslY5LGEksE`), Hobby plan, region `iad1`
-- **Verified in production:** home / explore / search / detail / both readers all return 200;
+- **v2 deployment:** `dpl_3ApGRCaYdWabApHhcVJGcJGJstsj` — READY, promoted to production.
+- **Verified in production (v2):** all 10 routes return 200, including `/reader/vn/[id]`;
+  `/api/novel?id=1342&chapter=0` serves 4,744 characters of real *Pride and Prejudice* text
+  in 0.54 s; search ranks the readable Gutenberg copy above the metadata-only duplicate.
+- **Verified in production (v1):** home / explore / search / detail / both readers all return 200;
   `GET /api/search?q=dune` returns 24 merged results; all four providers report healthy
   (AniList 114 ms, MangaDex 248 ms, VNDB 421 ms, Open Library 295 ms).
 
