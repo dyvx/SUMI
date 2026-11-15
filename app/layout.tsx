@@ -23,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="aurora" />
         <div className="relative z-10 min-h-screen">
           <Nav />
-          <main className="mx-auto max-w-7xl px-3 pb-28 pt-4 sm:px-6 md:pb-16">{children}</main>
+          <main className="mx-auto max-w-7xl px-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 md:pb-16">{children}</main>
           <TabBar />
         </div>
       </body>

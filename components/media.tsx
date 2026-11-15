@@ -51,9 +51,9 @@ export function MediaCard({ item, width = 148 }: { item: MediaItem; width?: numb
           </span>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 p-2.5">
+        <div className="absolute inset-x-0 bottom-0 px-2.5 pb-3 pt-2">
           <p className="card-title text-white drop-shadow">{item.title}</p>
-          <div className="mt-1 flex items-center gap-1.5 text-[10px] text-white/55">
+          <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-white/70">
             <span className="truncate">{CATEGORIES.find((c) => c.id === item.category)?.label}</span>
             {alt.length > 0 && (
               <span className="shrink-0 rounded bg-white/12 px-1 text-[9px] uppercase">+{alt.length}</span>

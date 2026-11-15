@@ -41,11 +41,13 @@ export default async function ExplorePage({
 
   return (
     <div className="space-y-5 pt-1">
-      <div className="flex items-end justify-between gap-3">
-        <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Explore</h1>
-          <p className="mt-1 text-[13px] text-white/45">
-            {items.length} live titles in {label} · every filter is shareable via URL
+          <p className="mt-1 text-[12.5px] leading-snug text-white/45">
+            <span className="whitespace-nowrap">{items.length} live titles</span>
+            <span className="hidden sm:inline"> in {label} · every filter is shareable via URL</span>
+            <span className="sm:hidden"> · {label}</span>
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1 rounded-full border border-white/12 bg-white/[0.05] p-1">
