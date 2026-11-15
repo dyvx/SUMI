@@ -8,7 +8,7 @@ import { anilistRelations } from "@/lib/providers/relations";
 import { findAudiobook } from "@/lib/providers/librivox";
 import { resolveReadingSource } from "@/lib/resolve";
 import { readData, trackRecent } from "@/lib/store";
-import { CATEGORIES, mediaKind } from "@/lib/types";
+import { CATEGORIES, mediaKind, imgUrl } from "@/lib/types";
 import type { MdChapter } from "@/lib/providers/mangadex";
 import { LibraryButtons } from "@/components/library-buttons";
 import { Cover } from "@/components/media";
@@ -125,7 +125,7 @@ export default async function TitlePage({ params }: { params: { id: string } }) 
         {(item.banner || item.cover) && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={item.banner || item.cover || ""}
+            src={imgUrl(item.banner || item.cover) || ""}
             alt=""
             className="h-full w-full scale-105 object-cover opacity-40"
           />
@@ -250,7 +250,7 @@ export default async function TitlePage({ params }: { params: { id: string } }) 
                       <div className="aspect-[2/3] overflow-hidden bg-white/5">
                         {r.cover && (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={r.cover} alt="" loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
+                          <img src={imgUrl(r.cover) || ""} alt="" loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
                         )}
                       </div>
                       <div className="p-1.5">

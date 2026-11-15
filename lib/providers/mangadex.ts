@@ -110,6 +110,20 @@ export const mangadex: ProviderAdapter = {
     return (data.data ?? []).map(toItem);
   },
 
+  async browse(category, limit = 30, sort = "popularity") {
+    const order =
+      sort === "rating" ? "rating" : sort === "title" ? "title" : "followedCount";
+    let url =
+      `${API}/manga?limit=${Math.min(limit, 40)}&includes[]=cover_art&includes[]=author&includes[]=artist` +
+      `&order[${order}]=desc&contentRating[]=safe&contentRating[]=suggestive&hasAvailableChapters=true`;
+    // Narrow by the origin language that matches the requested category.
+    if (category === "manhwa" || category === "webtoon") url += "&originalLanguage[]=ko";
+    else if (category === "manhua") url += "&originalLanguage[]=zh";
+    else if (category === "manga") url += "&originalLanguage[]=ja";
+    const data = await fetchJson<{ data: MdManga[] }>(url);
+    return (data.data ?? []).map(toItem);
+  },
+
   async byId(providerId) {
     const url = `${API}/manga/${providerId}?includes[]=cover_art&includes[]=author&includes[]=artist`;
     const data = await fetchJson<{ data: MdManga }>(url);
@@ -142,14 +156,25 @@ export async function mangadexChapters(mangaId: string, lang = "en"): Promise<Md
   }));
 }
 
-export async function mangadexPageUrls(chapterId: string): Promise<{ url: string; page: number }[]> {
+export interface MdPage {
+  url: string;
+  page: number;
+  /** Lower-bandwidth twin of the same page; used when the original stalls. */
+  fallback?: string;
+}
+
+export async function mangadexPageUrls(chapterId: string): Promise<MdPage[]> {
   const data = await fetchJson<{
     baseUrl: string;
-    chapter: { hash: string; data: string[] };
+    chapter: { hash: string; data: string[]; dataSaver?: string[] };
   }>(`${API}/at-home/server/${chapterId}`);
   const { baseUrl, chapter } = data;
-  return chapter.data.map((f, i) => ({
-    url: `${baseUrl}/data/${chapter.hash}/${f}`,
-    page: i + 1,
-  }));
+  return chapter.data.map((f, i) => {
+    const saver = chapter.dataSaver?.[i];
+    return {
+      url: `${baseUrl}/data/${chapter.hash}/${f}`,
+      page: i + 1,
+      ...(saver ? { fallback: `${baseUrl}/data-saver/${chapter.hash}/${saver}` } : {}),
+    };
+  });
 }

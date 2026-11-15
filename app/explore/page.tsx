@@ -40,7 +40,7 @@ export default async function ExplorePage({
   const label = CATEGORIES.find((c) => c.id === category)!.label;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pt-1">
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Explore</h1>

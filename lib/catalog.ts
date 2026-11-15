@@ -6,7 +6,7 @@ import { gutenberg } from "./providers/gutenberg";
 import { wikisource } from "./providers/wikisource";
 import { vndb } from "./providers/vndb";
 import type { ProviderAdapter } from "./providers/base";
-import { CATEGORIES, mediaKind, normalizeTitle } from "./types";
+import { CATEGORIES, categoryFamily, mediaKind, normalizeTitle } from "./types";
 import type { Category, MediaItem, Provider } from "./types";
 
 export const PROVIDERS: ProviderAdapter[] = [gutenberg, wikisource, anilist, mangadex, vndb, openlibrary];
@@ -232,31 +232,31 @@ export async function exploreCategory(
   category: Category,
   sort: "popularity" | "rating" | "title" = "popularity"
 ): Promise<MediaItem[]> {
-  const key = cacheKey("explore", category, sort, "v1");
+  const key = cacheKey("explore", category, sort, "v3");
   const cached = cacheGet<MediaItem[]>(key);
   if (cached) return cached;
 
-  const seedQueries = ["a", "e", "i", "o", "the"];
   const targets = providersFor(category);
+  const family = new Set(categoryFamily(category));
   const groups: MediaItem[][] = [];
-  for (const p of targets) {
-    if (p.trending && sort === "popularity" && groups.length === 0) {
+
+  await Promise.all(
+    targets.map(async (p) => {
       try {
-        const items = await guarded(p.id, () => p.trending!(25));
-        groups.push(items.filter((i) => i.category === category));
-        continue;
+        // Real popularity ordering only. Random-letter seeding used to surface
+        // obscure entries with unusable covers; this pulls genuinely notable work.
+        if (p.browse) {
+          const items = await guarded(p.id, () => p.browse!(category, 30, sort));
+          groups.push(items.filter((i) => family.has(i.category)));
+        } else if (p.trending) {
+          const items = await guarded(p.id, () => p.trending!(30));
+          groups.push(items.filter((i) => family.has(i.category)));
+        }
       } catch {
-        /* fall through to search */
+        /* a single provider failing should not empty the page */
       }
-    }
-    try {
-      const q = seedQueries[Math.floor(Math.random() * seedQueries.length)];
-      const items = await guarded(p.id, () => p.search(q, 25));
-      groups.push(items.filter((i) => i.category === category));
-    } catch {
-      /* provider skipped, others continue */
-    }
-  }
+    })
+  );
 
   const flat = mergeResults(groups, "");
   const sorted =
@@ -265,7 +265,8 @@ export async function exploreCategory(
       : sort === "title"
         ? [...flat].sort((a, b) => a.title.localeCompare(b.title))
         : flat;
-  cacheSet(key, sorted, 10 * 60 * 1000);
+
+  cacheSet(key, sorted, 15 * 60 * 1000);
   return sorted;
 }
 

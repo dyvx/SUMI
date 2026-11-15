@@ -20,6 +20,7 @@ export async function GET(req: Request) {
 
   const resolution = await resolveReadingSource(item);
 
+
   if (url.searchParams.get("chapters") && resolution.best) {
     try {
       const all = await mangadexChapters(resolution.best.mangadexId, "en");

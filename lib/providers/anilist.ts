@@ -153,6 +153,43 @@ export const anilist: ProviderAdapter = {
     return (data?.data?.Page?.media ?? []).map(toItem);
   },
 
+  async browse(category, limit = 30, sort = "popularity") {
+    const order = sort === "rating" ? "SCORE_DESC" : "POPULARITY_DESC";
+    const country =
+      category === "manhwa" || category === "webtoon"
+        ? "KR"
+        : category === "manhua"
+          ? "CN"
+          : category === "manga"
+            ? "JP"
+            : undefined;
+    const format =
+      category === "one-shot" ? "ONE_SHOT" : category === "light-novel" || category === "web-novel" ? "NOVEL" : undefined;
+
+    const data = await fetchJson<{ data: { Page: { media: AniMedia[] } } }>(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `query($perPage:Int,$sort:[MediaSort],$country:CountryCode,$format:MediaFormat){
+          Page(page:1,perPage:$perPage){
+            media(type:MANGA,sort:$sort,countryOfOrigin:$country,format:$format){
+              id title{romaji english native} description(asHtml:false) format countryOfOrigin status
+              chapters volumes genres averageScore popularity startDate{year}
+              coverImage{extraLarge large} bannerImage siteUrl
+            }
+          }
+        }`,
+        variables: {
+          perPage: Math.min(limit, 50),
+          sort: [order],
+          country,
+          format,
+        },
+      }),
+    });
+    return (data?.data?.Page?.media ?? []).map(toItem);
+  },
+
   async byId(providerId) {
     const data = await fetchJson<{ data: { Media: AniMedia | null } }>(ENDPOINT, {
       method: "POST",

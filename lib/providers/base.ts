@@ -33,6 +33,8 @@ export interface ProviderAdapter {
   categories: Category[];
   search(query: string, limit?: number): Promise<MediaItem[]>;
   trending?(limit?: number): Promise<MediaItem[]>;
+  /** Popular titles for a category, used by Explore. */
+  browse?(category: Category, limit: number, sort: "popularity" | "rating" | "title"): Promise<MediaItem[]>;
   byId?(providerId: string): Promise<MediaItem | null>;
 }
 

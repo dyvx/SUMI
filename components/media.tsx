@@ -1,16 +1,16 @@
 import Link from "next/link";
 import type { MediaItem } from "@/lib/types";
-import { CATEGORIES } from "@/lib/types";
+import { CATEGORIES, imgUrl } from "@/lib/types";
 
 const FALLBACK_GRADIENT = "linear-gradient(160deg,#2a1b4d,#4c1030 60%,#150a1e)";
 
 export function Cover({ item, className = "", priority = false }: { item: MediaItem; className?: string; priority?: boolean }) {
   return (
     <div className={`relative overflow-hidden bg-white/5 ${className}`} style={{ background: item.cover ? undefined : FALLBACK_GRADIENT }}>
-      {item.cover ? (
+      {imgUrl(item.cover) ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={item.cover}
+          src={imgUrl(item.cover)!}
           alt={item.title}
           loading={priority ? "eager" : "lazy"}
           decoding="async"

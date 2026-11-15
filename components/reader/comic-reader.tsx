@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MediaItem } from "@/lib/types";
+import { imgUrl } from "@/lib/types";
 
 interface Chapter {
   id: string;
@@ -13,8 +14,10 @@ interface Chapter {
 interface Page {
   url: string;
   page: number;
+  fallback?: string;
 }
 interface Resolution {
+  source?: "mangadex";
   found: boolean;
   best: { mangadexId: string; title: string; chapters: number; score: number } | null;
   candidates: { mangadexId: string; title: string; chapters: number; score: number }[];
@@ -35,9 +38,8 @@ export function ComicReader({
 }) {
   const [phase, setPhase] = useState<Phase>("resolving");
   const [resolution, setResolution] = useState<Resolution | null>(null);
-  const [sourceId, setSourceId] = useState<string | null>(
-    item.provider === "mangadex" ? item.providerId : null
-  );
+  const isNative = item.provider === "mangadex";
+  const [sourceId, setSourceId] = useState<string | null>(isNative ? item.providerId : null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [chapterId, setChapterId] = useState<string | null>(initialChapter ?? null);
   const [pages, setPages] = useState<Page[]>([]);
@@ -54,7 +56,7 @@ export function ComicReader({
   useEffect(() => {
     let alive = true;
 
-    if (item.provider === "mangadex") {
+    if (isNative) {
       setPhase("loading");
       return;
     }
@@ -76,7 +78,7 @@ export function ComicReader({
     return () => {
       alive = false;
     };
-  }, [item.id, item.provider]);
+  }, [item.id, item.provider, isNative]);
 
   /* ---------- 2. load chapter list ---------- */
   useEffect(() => {
@@ -233,7 +235,7 @@ export function ComicReader({
 
   if (phase === "empty" || (phase === "error" && !pages.length)) {
     return (
-      <ReaderShell item={item}>
+      <ReaderShell item={item} subtitle="No reading source available">
         <NoSourceState item={item} resolution={resolution} message={error} />
       </ReaderShell>
     );
@@ -294,14 +296,12 @@ export function ComicReader({
           <div className="mx-auto flex max-w-[820px] flex-col gap-1 py-1">
             {pages.map((p) => (
               <div key={p.page} data-page={p.page} className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={p.url}
-                  alt={`Page ${p.page}`}
-                  loading={p.page <= 2 ? "eager" : "lazy"}
-                  decoding="async"
-                  className="w-full select-none"
-                  style={{ transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: "top center" }}
+                <PageImage
+                  src={imgUrl(p.url) ?? ""}
+                  fallback={p.fallback ? imgUrl(p.fallback) ?? undefined : undefined}
+                  page={p.page}
+                  eager={p.page <= 2}
+                  zoom={zoom}
                 />
               </div>
             ))}
@@ -332,13 +332,14 @@ export function ComicReader({
             }`}
           >
             {visible.map((p) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <PageImage
                 key={p.page}
-                src={p.url}
-                alt={`Page ${p.page}`}
-                className="max-h-full min-h-0 object-contain"
-                style={{ maxWidth: mode === "double" ? "49%" : "100%" }}
+                src={imgUrl(p.url) ?? ""}
+                fallback={p.fallback ? imgUrl(p.fallback) ?? undefined : undefined}
+                page={p.page}
+                eager
+                contained
+                width={mode === "double" ? "49%" : "100%"}
               />
             ))}
           </div>
@@ -424,7 +425,99 @@ export function ComicReader({
 
 /* ------------------------------ presentational ------------------------------ */
 
-function ReaderShell({ item, children }: { item: MediaItem; children: React.ReactNode }) {
+/** A page image with a real fallback instead of a broken-image glyph. */
+function PageImage({
+  src,
+  fallback,
+  page,
+  eager,
+  zoom = 1,
+  contained = false,
+  width = "100%",
+}: {
+  src: string;
+  /** Lower-bandwidth twin of the same page, tried automatically before failing. */
+  fallback?: string;
+  page: number;
+  eager?: boolean;
+  zoom?: number;
+  contained?: boolean;
+  width?: string;
+}) {
+  const [current, setCurrent] = useState(src);
+  const [failed, setFailed] = useState(false);
+  const [tried, setTried] = useState(false);
+
+  // A new page (or a retry) must reset the fallback state.
+  useEffect(() => {
+    setCurrent(src);
+    setFailed(false);
+    setTried(false);
+  }, [src]);
+
+  if (failed) {
+    return (
+      <div
+        className="grid min-h-[45vh] w-full place-items-center bg-white/[0.03] px-6 text-center"
+        style={{ maxWidth: width }}
+      >
+        <div>
+          <p className="text-[13px] font-semibold text-white/70">Page {page} couldn’t load</p>
+          <p className="mt-1 text-[11.5px] text-white/35">
+            The source CDN refused this image. Try the next page or reload.
+          </p>
+          <button
+            onClick={() => {
+              setCurrent(src);
+              setFailed(false);
+              setTried(false);
+            }}
+            className="mt-3 rounded-full border border-white/20 px-3 py-1.5 text-[11.5px] text-white/70"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={current}
+      alt=""
+      aria-label={`Page ${page}`}
+      loading={eager ? "eager" : "lazy"}
+      decoding="async"
+      onError={() => {
+        // First refusal: drop to the compressed twin of the same page. Only if
+        // that also fails do we admit the page is unavailable.
+        if (!tried && fallback) {
+          setTried(true);
+          setCurrent(fallback);
+          return;
+        }
+        setFailed(true);
+      }}
+      className={contained ? "max-h-full min-h-0 object-contain" : "w-full select-none"}
+      style={{
+        maxWidth: width,
+        transform: !contained && zoom !== 1 ? `scale(${zoom})` : undefined,
+        transformOrigin: "top center",
+      }}
+    />
+  );
+}
+
+function ReaderShell({
+  item,
+  subtitle = "Locating a reading source…",
+  children,
+}: {
+  item: MediaItem;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#050507]">
       <div
@@ -436,7 +529,7 @@ function ReaderShell({ item, children }: { item: MediaItem; children: React.Reac
         </Link>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-semibold">{item.title}</p>
-          <p className="truncate text-[11px] text-white/40">Locating a reading source…</p>
+          <p className="truncate text-[11px] text-white/40">{subtitle}</p>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">{children}</div>
@@ -484,9 +577,19 @@ function NoSourceState({
           {message ?? resolution?.reason ?? "No matching reading source was found for this title."}
         </p>
         <p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-white/35">
-          Animus shows metadata for every title, but only reads what a source actually publishes —
-          it does not fabricate pages or host copyrighted material.
+          This is a source limitation, not a bug: the series exists, but no lawful source we query
+          publishes pages for it. Animus shows metadata for every title and never fabricates pages.
         </p>
+        {item.sourceUrl && (
+          <a
+            href={item.sourceUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="mt-3 inline-block rounded-full border border-white/15 px-3.5 py-1.5 text-[11.5px] text-white/60"
+          >
+            Open source page ↗
+          </a>
+        )}
       </div>
 
       {alt.length > 0 && (

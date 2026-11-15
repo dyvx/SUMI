@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { CATEGORIES } from "@/lib/types";
+import { CATEGORIES, imgUrl } from "@/lib/types";
 import type { MediaItem } from "@/lib/types";
 
 export function HeroCarousel({ items }: { items: MediaItem[] }) {
@@ -48,7 +48,7 @@ export function HeroCarousel({ items }: { items: MediaItem[] }) {
             {(s.banner || s.cover) && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={s.banner || s.cover || ""}
+                src={imgUrl(s.banner || s.cover) || ""}
                 alt=""
                 className="h-full w-full scale-110 object-cover"
                 style={{ transform: `translateY(${offset}px) scale(1.12)` }}
@@ -68,7 +68,7 @@ export function HeroCarousel({ items }: { items: MediaItem[] }) {
           <div className="aspect-[2/3]">
             {cur.cover && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={cur.cover} alt={cur.title} className="h-full w-full object-cover" />
+              <img src={imgUrl(cur.cover) || ""} alt={cur.title} className="h-full w-full object-cover" />
             )}
           </div>
         </Link>

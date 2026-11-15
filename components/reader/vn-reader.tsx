@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MediaItem } from "@/lib/types";
+import { imgUrl } from "@/lib/types";
 
 /**
  * Visual-novel presentation layer.
@@ -104,7 +105,7 @@ export function VnReader({ item }: { item: MediaItem }) {
       {bg && (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={bg} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45 blur-[2px] scale-105" />
+          <img src={imgUrl(bg) || ""} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45 blur-[2px] scale-105" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/25 to-black/85" />
           <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_40%,transparent,rgba(0,0,0,.85))]" />
         </>

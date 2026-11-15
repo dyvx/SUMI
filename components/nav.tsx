@@ -18,7 +18,7 @@ export function Nav() {
 
   return (
     <header
-      className="sticky top-0 z-40 px-3 pt-3 sm:px-6"
+      className="sticky top-0 z-40 px-3 pt-3 sm:px-6 backdrop-blur-sm"
       style={{ paddingTop: "calc(0.75rem + var(--safe-t))" }}
     >
       <div className="mx-auto flex max-w-7xl items-center gap-3">

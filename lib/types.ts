@@ -110,3 +110,38 @@ export function normalizeTitle(t: string): string {
     .replace(/[^a-z0-9\u3000-\u9fff\uac00-\ud7af]/g, "")
     .trim();
 }
+
+/**
+ * Wraps an external image URL in our own proxy. Provider CDNs frequently reject
+ * browser requests from foreign origins, which renders as broken-image icons.
+ */
+export function imgUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("/")) return url;
+  if (!/^https:\/\//.test(url)) return null;
+  return `/api/img?u=${encodeURIComponent(url)}`;
+}
+
+/**
+ * Browsing families. MangaDex tags Korean long-strip comics as `webtoon`, and
+ * readers reasonably expect those under Manhwa too. This affects display and
+ * filtering only — de-duplication still requires an exact title match.
+ */
+const FAMILY: Record<Category, Category[]> = {
+  manga: ["manga", "one-shot", "doujinshi"],
+  manhwa: ["manhwa", "webtoon"],
+  manhua: ["manhua"],
+  webtoon: ["webtoon", "manhwa"],
+  "light-novel": ["light-novel"],
+  "web-novel": ["web-novel", "light-novel"],
+  "visual-novel": ["visual-novel"],
+  doujinshi: ["doujinshi", "manga"],
+  comic: ["comic", "graphic-novel"],
+  "graphic-novel": ["graphic-novel", "comic"],
+  wuxia: ["wuxia"],
+  "one-shot": ["one-shot", "manga"],
+};
+
+export function categoryFamily(c: Category): Category[] {
+  return FAMILY[c] ?? [c];
+}
