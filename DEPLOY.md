@@ -1,9 +1,12 @@
 # Deploying this build
 
-The workspace copy is built and verified, but it is not on Vercel yet: the sandbox
-lost its git remote credentials, so `git push` cannot authenticate.
+**Status: live.** Commit `0b454e0` is on `dyvx/SUMI` main and deployed to
+production (`dpl_FftgXWareCEKAu6NiWTPR95WBVZV`, READY) at
+https://sumi-ruby.vercel.app — verified there: 110 proxied covers all 200,
+Chainsaw Man chapter 1 serves 51 pages with page images 200, manhwa shelf 114
+images, no junk titles.
 
-Everything below is one command once a token is available.
+The notes below are kept for future deploys.
 
 ## Option A — push with a fine-grained PAT
 
