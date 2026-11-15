@@ -63,6 +63,12 @@ export function ComicReader({
   const [percent, setPercent] = useState(startPercent);
   const [zoom, setZoom] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // How many pages either side of the current one stay mounted.
+  const WINDOW = 7;
+  const [baseWidth, setBaseWidth] = useState(0);
+  // Most long-strip series use a consistent slice size, so one measurement is a
+  // good estimate for the pages that are not mounted yet.
+  const [ratio, setRatio] = useState(1.6);
 
   /* ---------- 1. resolve a reading source when the provider has none ---------- */
   useEffect(() => {
@@ -149,6 +155,26 @@ export function ComicReader({
     };
   }, [chapterId, kind]);
 
+  /*
+   * Prefetch: when a chapter is on screen, quietly ask for the next chapter's
+   * page list so tapping "Next" does not wait on the source. Best effort — a
+   * failure here is invisible and costs nothing.
+   */
+  useEffect(() => {
+    if (phase !== "ready" || !chapters.length || !chapterId) return;
+    const i = chapters.findIndex((c) => c.id === chapterId);
+    const next = chapters[i + 1];
+    if (!next) return;
+    const url =
+      kind === "webtoon"
+        ? `/api/chapter?webtoonUrl=${encodeURIComponent(next.id)}`
+        : `/api/chapter?chapterId=${encodeURIComponent(next.id)}`;
+    const t = setTimeout(() => {
+      fetch(url).catch(() => {});
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [phase, chapters, chapterId, kind]);
+
   const chapterNumber = useMemo(() => {
     const c = chapters.find((x) => x.id === chapterId);
     return c?.chapter ? Number(c.chapter) || 0 : 0;
@@ -170,6 +196,12 @@ export function ComicReader({
     },
     [item.id, chapterNumber, pages.length]
   );
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setBaseWidth(el.clientWidth);
+  }, [phase]);
 
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -315,17 +347,35 @@ export function ComicReader({
 
         {phase === "ready" && mode === "vertical" && (
           <div className="mx-auto flex max-w-[820px] flex-col gap-1 py-1">
-            {pages.map((p) => (
-              <div key={p.page} data-page={p.page} className="relative">
-                <PageImage
-                  src={imgUrl(p.url) ?? ""}
-                  fallback={p.fallback ? imgUrl(p.fallback) ?? undefined : undefined}
-                  page={p.page}
-                  eager={p.page <= 2}
-                  zoom={zoom}
-                />
-              </div>
-            ))}
+            {pages.map((p) => {
+              /*
+               * Long-strip chapters can be hundreds of images (a WEBTOON episode
+               * is often 600+). Mounting them all at once exhausts memory on a
+               * phone and makes scrolling stutter, so only the pages near the
+               * viewport keep a real <img>; the rest are sized placeholders.
+               */
+              const near = Math.abs(p.page - 1 - index) <= WINDOW;
+              return (
+                <div key={p.page} data-page={p.page} className="relative">
+                  {near ? (
+                    <PageImage
+                      src={imgUrl(p.url) ?? ""}
+                      fallback={p.fallback ? imgUrl(p.fallback) ?? undefined : undefined}
+                      page={p.page}
+                      eager={p.page <= 3}
+                      zoom={zoom}
+                      onRatio={setRatio}
+                    />
+                  ) : (
+                    <div
+                      aria-hidden
+                      className="w-full rounded-md bg-white/[0.04]"
+                      style={{ height: Math.max(120, Math.round((baseWidth || 720) * ratio * zoom)) }}
+                    />
+                  )}
+                </div>
+              );
+            })}
             <div className="flex items-center justify-between gap-2 p-5">
               <button
                 disabled={!prevChapter}
@@ -455,6 +505,7 @@ function PageImage({
   zoom = 1,
   contained = false,
   width = "100%",
+  onRatio,
 }: {
   src: string;
   /** Lower-bandwidth twin of the same page, tried automatically before failing. */
@@ -464,6 +515,8 @@ function PageImage({
   zoom?: number;
   contained?: boolean;
   width?: string;
+  /** Reports height/width of the real image so offscreen placeholders match. */
+  onRatio?: (ratio: number) => void;
 }) {
   const [current, setCurrent] = useState(src);
   const [failed, setFailed] = useState(false);
@@ -510,6 +563,10 @@ function PageImage({
       aria-label={`Page ${page}`}
       loading={eager ? "eager" : "lazy"}
       decoding="async"
+      onLoad={(e) => {
+        const img = e.currentTarget;
+        if (img.naturalWidth > 0 && onRatio) onRatio(img.naturalHeight / img.naturalWidth);
+      }}
       onError={() => {
         // First refusal: drop to the compressed twin of the same page. Only if
         // that also fails do we admit the page is unavailable.
