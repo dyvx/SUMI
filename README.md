@@ -8,6 +8,27 @@ to run it.
 
 ---
 
+## Live deployment
+
+- **URL:** https://sumi-ruby.vercel.app
+- **GitHub:** https://github.com/dyvx/SUMI
+- **Vercel project:** `sumi` (`prj_rFFvgvCTGQ44YyWv6SslY5LGEksE`), Hobby plan, region `iad1`
+- **Verified in production:** home / explore / search / detail / both readers all return 200;
+  `GET /api/search?q=dune` returns 24 merged results; all four providers report healthy
+  (AniList 114 ms, MangaDex 248 ms, VNDB 421 ms, Open Library 295 ms).
+
+`sumi-zynx4.vercel.app` is protected by Vercel Deployment Protection (302 to SSO). Use the
+`sumi-ruby` alias, or disable protection in project settings.
+
+### Persistence on Vercel — read this
+
+Vercel's filesystem is read-only. `lib/store.ts` therefore falls back to an in-memory store
+instead of throwing 500s. Library and progress writes **succeed and read back on a warm
+instance**, but are lost on a cold start. Browsing, search, metadata and both readers are
+unaffected. Durable persistence requires Supabase — apply `db/schema.sql`.
+
+---
+
 ## 1. What actually works (verified, not claimed)
 
 Every provider below was called live from this build. Results are from real requests.
