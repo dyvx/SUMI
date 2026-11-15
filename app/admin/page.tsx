@@ -6,6 +6,7 @@ import { AdminSections } from "@/components/admin-sections";
 export const dynamic = "force-dynamic";
 
 const ALL_SECTIONS = [
+  ["public-domain", "Read in full — public domain"],
   ["trending", "Trending now"],
   ["popular-manga", "Popular manga"],
   ["popular-manhwa", "Popular manhwa"],

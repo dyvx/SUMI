@@ -11,6 +11,7 @@ const DEFAULT: AppData = {
   recent: [],
   settings: {
     homepageSections: [
+      "public-domain",
       "trending",
       "popular-manga",
       "popular-manhwa",

@@ -29,6 +29,29 @@ unaffected. Durable persistence requires Supabase — apply `db/schema.sql`.
 
 ---
 
+## v2 — what changed
+
+- **Real book reading.** A new Project Gutenberg adapter serves genuine public-domain
+  text: 34 curated works, fetched live, split into real chapters (heading-aware, with
+  CJK support for 第…回). *Pride and Prejudice* yields 79 chapters; *三國志演義* yields 114
+  with correct Chinese chapter titles. Every book ID was verified by reading its actual
+  title out of the source file — none were assumed.
+- **Visual novel reader.** A scene player with typewriter text, auto-advance, tap/keyboard
+  advance and adjustable size, driven by real VNDB synopsis text. It is explicitly a
+  *reading presentation*, not a game-engine runtime.
+- **Readable-content priority.** When a public-domain book and a metadata-only record share
+  a title, the readable copy now wins the merge (`readable` flag + weight). Two tests lock
+  this in.
+- **⌘K command palette** with debounced live search, keyboard nav and recent searches.
+- **Hero carousel** with crossfade, scroll parallax and auto-advance.
+- **Scroll-reveal animations** via IntersectionObserver, disabled under reduced-motion.
+- **Explore rebuilt:** grid/list views, genre chips, shareable URL filter state.
+- **Comic reader:** touch swipe (direction-aware), next-page preloading.
+- **Novel reader rebuilt:** real chapters, TOC with sizes, persisted preferences
+  (size/leading/font/theme), bookmarks, keyboard chapter nav, skeleton + error states.
+
+---
+
 ## 1. What actually works (verified, not claimed)
 
 Every provider below was called live from this build. Results are from real requests.
@@ -39,6 +62,8 @@ Every provider below was called live from this build. Results are from real requ
 | MangaDex | `https://api.mangadex.org` | none | ✅ search, feed, `at-home` page URLs | metadata + authorized reading pages |
 | VNDB | `POST https://api.vndb.org/kana/vn` | none | ✅ search, filter | visual-novel metadata |
 | Open Library | `https://openlibrary.org/search.json` | none | ✅ search, works | book metadata + covers |
+| Project Gutenberg | `gutenberg.org/cache/epub/<id>/pg<id>.txt` | none | ✅ 34 books, full text + covers | **real readable text** |
+| Gutendex | `gutendex.com/books` | none | ❌ unreachable (timeout) | not used |
 | Google Books | `googleapis.com/books/v1` | none | ⚠️ quota-exhausted on shared IPs | metadata (disabled) |
 | Comic Vine | `comicvine.gamespot.com/api` | **API key required** | ❌ not enabled | comic metadata |
 | Jikan (MAL mirror) | `api.jikan.moe/v4` | none | ❌ no response during testing | metadata (not used) |
@@ -136,9 +161,9 @@ No payment integration exists. Nothing in the app requires a paid tier.
 
 These are real and deliberate, not hidden:
 
-1. **No copyrighted prose is bundled.** Novel/light-novel entries open in a clearly-labelled
-   placeholder reader. Typography, TOC, themes and progress tracking all work; attach your
-   own authorized text to read real content.
+1. **No copyrighted prose is bundled.** Novels either read in full (public-domain
+   Gutenberg entries) or show an honest "metadata only" state. There are no placeholder
+   chapters any more.
 2. **MangaDex coverage is incomplete** — popular titles are frequently DMCA-removed. The UI
    reports missing chapters honestly.
 3. **Manual CMS entry is partial.** Homepage section reordering, settings and export are
@@ -152,3 +177,8 @@ These are real and deliberate, not hidden:
    blocks hotlinking, images will not render; metadata still will.
 8. **Webtoon rendering** uses the vertical mode of the comic reader rather than a separate
    infinite-scroll engine. Behaviour is equivalent; the code path is shared.
+9. **The Gutenberg catalogue is curated (34 titles), not exhaustive.** Gutendex was
+   unreachable from this environment, so books are listed explicitly. Adding a title is a
+   one-line addition to `GUTENBERG_BOOKS`.
+10. **The VN reader does not run game engines.** It presents a title's real synopsis in a
+    VN-styled scene. Ren'Py/KiriKiri compatibility is not implemented and not claimed.

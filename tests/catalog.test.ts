@@ -67,3 +67,19 @@ test("fetchJson rejects on HTTP error rather than returning junk", async () => {
 test("fetchJson aborts when the provider exceeds the timeout", async () => {
   await assert.rejects(() => fetchJson("https://httpstat.us/200?sleep=5000", { timeout: 400 }));
 });
+
+test("readable entries win a merge against metadata-only duplicates", () => {
+  const meta = item({ id: "openlibrary:/works/OL1W", title: "Pride and Prejudice", provider: "openlibrary", description: "x", cover: "c", author: "Jane Austen" });
+  const readable = item({ id: "gutenberg:1342", title: "Pride and Prejudice", provider: "gutenberg", readable: true });
+  const merged = mergeResults([[readable], [meta]], "pride and prejudice");
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].provider, "gutenberg", "the readable copy must win");
+  assert.equal(merged[0].readable, true);
+});
+
+test("merging preserves readable status on the surviving record", () => {
+  const rich = item({ id: "openlibrary:/works/OL2W", title: "Dracula", provider: "openlibrary", description: "long", cover: "c", author: "Bram Stoker" });
+  const readable = item({ id: "gutenberg:345", title: "Dracula", provider: "gutenberg", readable: true });
+  const merged = mergeResults([[rich], [readable]], "dracula");
+  assert.equal(merged[0].readable, true);
+});

@@ -156,6 +156,35 @@ export function ComicReader({
     return () => window.removeEventListener("keydown", onKey);
   }, [mode, direction, pages.length]);
 
+  // Preload the next few pages so page turns feel instant.
+  useEffect(() => {
+    if (mode === "vertical" || !pages.length) return;
+    const ahead = mode === "double" ? 4 : 3;
+    for (let n = index; n < Math.min(pages.length, index + ahead); n++) {
+      const img = new Image();
+      img.src = pages[n].url;
+    }
+  }, [index, mode, pages]);
+
+  // Touch swipe for paged modes.
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStart.current || mode === "vertical") return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.current.x;
+    const dy = t.clientY - touchStart.current.y;
+    touchStart.current = null;
+    if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
+    const step = mode === "double" ? 2 : 1;
+    // A left swipe advances in LTR, goes back in RTL.
+    const forward = direction === "ltr" ? dx < 0 : dx > 0;
+    setIndex((i) => forward ? Math.min(pages.length - 1, i + step) : Math.max(0, i - step));
+  };
+
   const currentIdx = chapters.findIndex((c) => c.id === chapterId);
   const prevChapter = currentIdx > 0 ? chapters[currentIdx - 1] : null;
   const nextChapter = currentIdx >= 0 && currentIdx < chapters.length - 1 ? chapters[currentIdx + 1] : null;
@@ -196,6 +225,8 @@ export function ComicReader({
       <div
         ref={scrollRef}
         onScroll={onScroll}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
         onClick={() => setShowUI((v) => !v)}
         className={`flex-1 ${mode === "vertical" ? "overflow-y-auto" : "grid place-items-center overflow-hidden"}`}
       >

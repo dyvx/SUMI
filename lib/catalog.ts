@@ -2,12 +2,13 @@ import { cacheGet, cacheKey, cacheSet } from "./cache";
 import { anilist } from "./providers/anilist";
 import { mangadex } from "./providers/mangadex";
 import { openlibrary } from "./providers/openlibrary";
+import { gutenberg } from "./providers/gutenberg";
 import { vndb } from "./providers/vndb";
 import type { ProviderAdapter } from "./providers/base";
 import { CATEGORIES, mediaKind, normalizeTitle } from "./types";
 import type { Category, MediaItem, Provider } from "./types";
 
-export const PROVIDERS: ProviderAdapter[] = [anilist, mangadex, vndb, openlibrary];
+export const PROVIDERS: ProviderAdapter[] = [gutenberg, anilist, mangadex, vndb, openlibrary];
 
 /** Per-provider health, updated on every live call. */
 export interface Health {
@@ -97,13 +98,18 @@ export function mergeResults(groups: MediaItem[][], query: string): MediaItem[] 
       // Keep the richer record; record the alternate source.
       existing.altProviders.push(item.provider);
       const richness = (m: MediaItem) =>
-        (m.description ? 1 : 0) + (m.cover ? 1 : 0) + (m.author ? 1 : 0) + m.genres.length / 10;
+        (m.readable ? 6 : 0) +
+        (m.description ? 1 : 0) +
+        (m.cover ? 1 : 0) +
+        (m.author ? 1 : 0) +
+        m.genres.length / 10;
       if (richness(item) > richness(existing)) {
         byKey.set(key, { ...item, altProviders: existing.altProviders });
       } else {
         existing.description ??= item.description;
         existing.cover ??= item.cover;
         existing.author ??= item.author;
+        if (item.readable) existing.readable = true;
       }
     }
   }
@@ -180,17 +186,19 @@ export async function buildHomeRows(): Promise<{ rows: Row[]; degraded: Provider
     }
   };
 
-  const [aniTrending, mdTrending, vnTop, books] = await Promise.all([
+  const [aniTrending, mdTrending, vnTop, books, publicDomain] = await Promise.all([
     safe("anilist", () => anilist.trending!(12)),
     safe("mangadex", () => mangadex.trending!(12)),
     safe("vndb", () => vndb.trending!(10)),
     safe("openlibrary", () => openlibrary.search("light novel", 10)),
+    safe("gutenberg", () => gutenberg.trending!(14)),
   ]);
 
   const pool = [...aniTrending, ...mdTrending, ...vnTop, ...books].filter((m) => m.cover);
   const byCat = (c: Category) => pool.filter((m) => m.category === c).slice(0, 10);
 
   const rows: Row[] = [
+    { id: "public-domain", title: "Read in full — public domain", subtitle: "Complete books with real text, free and legal", items: publicDomain },
     { id: "trending", title: "Trending now", subtitle: "What the world is reading", items: aniTrending.slice(0, 12) },
     { id: "popular-manga", title: "Popular manga", subtitle: "Japanese serializations", items: byCat("manga") },
     { id: "popular-manhwa", title: "Popular manhwa", subtitle: "Korean webcomics", items: byCat("manhwa") },

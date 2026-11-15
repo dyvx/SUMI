@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { CommandPalette } from "./command-palette";
 
 const LINKS = [
   { href: "/", label: "Home" },
@@ -16,15 +17,17 @@ export function Nav() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 px-3 pt-3 sm:px-6" style={{ paddingTop: "calc(0.75rem + var(--safe-t))" }}>
+    <header
+      className="sticky top-0 z-40 px-3 pt-3 sm:px-6"
+      style={{ paddingTop: "calc(0.75rem + var(--safe-t))" }}
+    >
       <div className="mx-auto flex max-w-7xl items-center gap-3">
-        <Link href="/" className="flex items-center gap-2 pl-1 pr-2">
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-violet-500 to-crimson-600 text-sm font-black shadow-lg shadow-violet-900/40">
+        <Link href="/" className="group flex items-center gap-2 pl-1 pr-2">
+          <span className="relative grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-violet-500 to-rose-600 text-sm font-black shadow-lg shadow-violet-900/40 transition group-active:scale-95">
             A
+            <span className="absolute inset-0 rounded-full ring-1 ring-inset ring-white/25" />
           </span>
-          <span className="hidden text-[15px] font-bold tracking-tight sm:block">
-            Animus
-          </span>
+          <span className="hidden text-[15px] font-bold tracking-tight sm:block">Animus</span>
         </Link>
 
         <nav className="nav-float hidden items-center gap-0.5 px-1.5 py-1.5 md:flex">
@@ -41,14 +44,22 @@ export function Nav() {
         </nav>
 
         <div className="flex flex-1 items-center justify-end gap-2">
-          <QuickSearch />
+          <CommandPalette />
           <button
             aria-label="Menu"
             onClick={() => setOpen((v) => !v)}
             className="btn btn-glass h-10 w-10 !p-0 md:hidden"
           >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M4 7h16M4 12h16M4 17h16" />
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+            >
+              <path d={open ? "M6 6l12 12M18 6L6 18" : "M4 7h16M4 12h16M4 17h16"} />
             </svg>
           </button>
         </div>
@@ -62,7 +73,7 @@ export function Nav() {
                 key={l.href}
                 href={l.href}
                 onClick={() => setOpen(false)}
-                className="rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold"
+                className="rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold transition active:scale-[0.98]"
               >
                 {l.label}
               </Link>
@@ -71,56 +82,6 @@ export function Nav() {
         </div>
       )}
     </header>
-  );
-}
-
-function QuickSearch() {
-  const router = useRouter();
-  const [q, setQ] = useState("");
-  const [expanded, setExpanded] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (expanded) inputRef.current?.focus();
-  }, [expanded]);
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (q.trim()) router.push(`/search?q=${encodeURIComponent(q.trim())}`);
-      }}
-      className="flex items-center"
-    >
-      <div
-        className={`search-shell h-10 transition-all duration-300 ${
-          expanded ? "w-[min(62vw,340px)]" : "w-10 !p-0 justify-center"
-        }`}
-        onClick={() => setExpanded(true)}
-      >
-        {expanded ? (
-          <>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="shrink-0 opacity-60">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" strokeLinecap="round" />
-            </svg>
-            <input
-              ref={inputRef}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onBlur={() => !q && setExpanded(false)}
-              placeholder="Search manga, novels, VNs…"
-              aria-label="Search"
-            />
-          </>
-        ) : (
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="opacity-70">
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" strokeLinecap="round" />
-          </svg>
-        )}
-      </div>
-    </form>
   );
 }
 
@@ -135,8 +96,22 @@ export function TabBar() {
   return (
     <nav className="tabbar md:hidden">
       {items.map((i) => (
-        <Link key={i.href} href={i.href} className="tab" data-active={i.href === "/" ? pathname === "/" : pathname.startsWith(i.href)}>
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <Link
+          key={i.href}
+          href={i.href}
+          className="tab"
+          data-active={i.href === "/" ? pathname === "/" : pathname.startsWith(i.href)}
+        >
+          <svg
+            width="19"
+            height="19"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d={i.icon} />
           </svg>
           {i.label}

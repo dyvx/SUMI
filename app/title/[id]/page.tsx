@@ -32,11 +32,13 @@ export default async function TitlePage({ params }: { params: { id: string } }) 
   }
 
   const readerHref =
-    kind === "prose"
-      ? `/reader/novel/${encodeURIComponent(item.id)}`
+    kind === "vn"
+      ? `/reader/vn/${encodeURIComponent(item.id)}`
       : kind === "comic"
         ? `/reader/comic/${encodeURIComponent(item.id)}`
         : `/reader/novel/${encodeURIComponent(item.id)}`;
+
+  const readable = item.readable === true;
 
   return (
     <div className="space-y-7">
@@ -71,7 +73,7 @@ export default async function TitlePage({ params }: { params: { id: string } }) 
           )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Link href={readerHref} className="btn btn-primary">
-              {progress ? `Continue · Ch. ${progress.chapter}` : "Start reading"}
+              {progress ? `Continue · Ch. ${progress.chapter}` : kind === "vn" ? "Open scene" : "Start reading"}
             </Link>
             <LibraryButtons item={item} initial={entry?.status ?? null} />
           </div>
@@ -137,13 +139,27 @@ export default async function TitlePage({ params }: { params: { id: string } }) 
           {kind !== "comic" && (
             <section className="glass-panel p-4">
               <h2 className="mb-2 text-[13px] font-bold uppercase tracking-wider text-white/45">Reading</h2>
-              <p className="text-[13.5px] leading-relaxed text-white/55">
-                No authorized text is bundled with this entry. The reader opens in placeholder mode so typography,
-                progress tracking and bookmarks work end-to-end. Paste authorized text in Admin to read for real.
-              </p>
-              <Link href={readerHref} className="btn btn-glass mt-3">
-                Open reader
-              </Link>
+              {readable ? (
+                <>
+                  <p className="text-[13.5px] leading-relaxed text-white/70">
+                    Full text available — public domain, served live from Project Gutenberg. Real chapters,
+                    real pagination, remembered position.
+                  </p>
+                  <Link href={readerHref} className="btn btn-primary mt-3">
+                    Read full book
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <p className="text-[13.5px] leading-relaxed text-white/50">
+                    This provider supplies metadata only — no text is bundled, and Animus does not host
+                    copyrighted prose. Browse the public-domain collection to read something in full.
+                  </p>
+                  <Link href="/explore?category=web-novel" className="btn btn-glass mt-3">
+                    Browse readable books
+                  </Link>
+                </>
+              )}
             </section>
           )}
         </div>

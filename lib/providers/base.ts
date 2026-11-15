@@ -59,6 +59,7 @@ export function blank(partial: Partial<MediaItem> & { id: string; provider: Prov
     originalLanguage: null,
     sourceUrl: "",
     attribution: "",
+    readable: false,
     updatedAt: new Date().toISOString(),
     ...partial,
   };
