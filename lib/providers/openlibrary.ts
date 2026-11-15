@@ -28,7 +28,7 @@ function toItem(d: OlDoc): MediaItem {
     providerId: d.key,
     title: d.title,
     altTitles: d.alt_title ?? [],
-    category: "web-novel",
+    category: "light-novel",
     description: subjects.length ? `Subjects: ${subjects.join(", ")}` : null,
     cover: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : null,
     author: d.author_name?.[0] ?? null,
@@ -45,7 +45,7 @@ export const openlibrary: ProviderAdapter = {
   id: "openlibrary",
   label: "Open Library",
   attribution: "Metadata from Open Library, an initiative of the Internet Archive",
-  categories: ["web-novel", "light-novel", "wuxia"],
+  categories: ["light-novel"],
 
   async search(query, limit = 20) {
     const url = `${API}/search.json?q=${encodeURIComponent(query)}&limit=${Math.min(limit, 25)}&fields=key,title,author_name,first_publish_year,cover_i,subject,language,publisher,alt_title`;
@@ -70,7 +70,7 @@ export const openlibrary: ProviderAdapter = {
       provider: "openlibrary",
       providerId: key,
       title: work.title,
-      category: "web-novel",
+      category: "light-novel",
       description: desc,
       cover: work.covers?.[0] ? `https://covers.openlibrary.org/b/id/${work.covers[0]}-L.jpg` : null,
       genres: (work.subjects ?? []).slice(0, 10),

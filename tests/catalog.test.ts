@@ -30,7 +30,7 @@ test("identical titles from different providers are merged into one result", () 
 
 test("same title in different media kinds is NOT merged", () => {
   const comic = item({ id: "anilist:1", title: "Berserk", category: "manga" });
-  const book = item({ id: "openlibrary:/works/OL1W", title: "Berserk", category: "web-novel", provider: "openlibrary" });
+  const book = item({ id: "openlibrary:/works/OL1W", title: "Berserk", category: "light-novel", provider: "openlibrary" });
   const merged = mergeResults([[comic], [book]], "berserk");
   assert.equal(merged.length, 2, "a manga and a novel with the same name stay separate");
 });

@@ -1,6 +1,7 @@
 import { cacheGet, cacheKey, cacheSet } from "./cache";
 import { fetchJson } from "./providers/base";
 import { normalizeTitle } from "./types";
+import { webtoon, webtoonEpisodes } from "./providers/webtoon";
 import type { MediaItem } from "./types";
 
 /**
@@ -14,7 +15,12 @@ import type { MediaItem } from "./types";
 
 const MD = "https://api.mangadex.org";
 
+export type ReadingProvider = "mangadex" | "webtoon";
+
 export interface Candidate {
+  /** Which source holds the pages. */
+  provider: ReadingProvider;
+  /** Provider-native id (MangaDex UUID or WEBTOON `path~titleNo`). */
   mangadexId: string;
   title: string;
   chapters: number;
@@ -141,13 +147,31 @@ export async function resolveReadingSource(item: MediaItem): Promise<Resolution>
     const n = await chapterCount(item.providerId);
     return {
       found: n > 0,
-      best: n > 0 ? { mangadexId: item.providerId, title: item.title, chapters: n, score: 100 } : null,
+      best: n > 0 ? { provider: "mangadex", mangadexId: item.providerId, title: item.title, chapters: n, score: 100 } : null,
       candidates: [],
       reason: n > 0 ? undefined : "This MangaDex entry has no English chapters (often due to takedowns).",
     };
   }
 
-  if (!["anilist", "manual", "openlibrary", "vndb"].includes(item.provider)) {
+  // A WEBTOON title is its own reading source — no lookup needed.
+  if (item.provider === "webtoon") {
+    try {
+      const eps = await webtoonEpisodes(item.providerId);
+      return {
+        found: eps.length > 0,
+        best:
+          eps.length > 0
+            ? { provider: "webtoon", mangadexId: item.providerId, title: item.title, chapters: eps.length, score: 100 }
+            : null,
+        candidates: [],
+        reason: eps.length ? undefined : "This WEBTOON series has no free episodes listed.",
+      };
+    } catch {
+      return { found: false, best: null, candidates: [], reason: "WEBTOON did not answer." };
+    }
+  }
+
+  if (!["anilist", "manual", "openlibrary", "mangaupdates"].includes(item.provider)) {
     return { found: false, best: null, candidates: [], reason: "This provider does not map to a reading source." };
   }
 
@@ -199,6 +223,7 @@ export async function resolveReadingSource(item: MediaItem): Promise<Resolution>
     // Prefer the plain release over an edition variant when both are readable.
     const isEdition = stripEdition(primary) !== primary;
     scored.push({
+      provider: "mangadex",
       mangadexId: m.id,
       title: primary || "Untitled",
       chapters: -1,
@@ -214,17 +239,46 @@ export async function resolveReadingSource(item: MediaItem): Promise<Resolution>
   }
 
   const usable = top.filter((c) => c.chapters > 0).sort((a, b) => b.score - a.score || b.chapters - a.chapters);
-  const best = usable[0] ?? null;
+  let best: Candidate | null = usable[0] ?? null;
+
+  /*
+   * MangaDex first, then WEBTOON. Most Korean/Chinese vertical-scroll titles
+   * that MangaDex cannot serve are officially free on WEBTOON, so trying it
+   * before declaring "no source" removes most of the dead ends.
+   */
+  if (!best) {
+    try {
+      const hits = await webtoon.search(item.title, 8);
+      const sourceNamesWebtoon = new Set(
+        [item.title, ...(item.altTitles ?? [])].map((t) => foldTitle(t)).filter(Boolean)
+      );
+      const exact = hits.find((h) => exactTitleMatch(sourceNamesWebtoon, h.title));
+      if (exact) {
+        const eps = await webtoonEpisodes(exact.providerId);
+        if (eps.length) {
+          best = {
+            provider: "webtoon",
+            mangadexId: exact.providerId,
+            title: exact.title,
+            chapters: eps.length,
+            score: 95,
+          };
+        }
+      }
+    } catch {
+      /* keep the honest empty result */
+    }
+  }
 
   const resolution: Resolution = {
     found: !!best,
     best,
-    candidates: top,
+    candidates: best && best.provider === "webtoon" ? [best, ...top] : top,
     reason: best
       ? undefined
       : top.length
-        ? "A matching entry exists but has no English chapters (often removed after takedown requests)."
-        : "No entry with this exact title was found on MangaDex. Close matches were ignored so a different series is never substituted.",
+        ? "A matching MangaDex entry exists but has no English pages, and WEBTOON has no free episodes for it."
+        : "No entry with this exact title was found on MangaDex or WEBTOON. Close matches were ignored so a different series is never substituted.",
   };
   cacheSet(key, resolution, 6 * 60 * 60 * 1000);
   return resolution;

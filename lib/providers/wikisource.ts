@@ -52,9 +52,9 @@ function stripHtml(html: string): string {
 }
 
 function guessCategory(lang: Lang, title: string): Category {
-  if (lang === "zh") return "wuxia";
-  if (/poem|essay|speech|treaty|constitution|declaration/i.test(title)) return "web-novel";
-  return "web-novel";
+  if (lang === "zh") return "light-novel";
+  if (/poem|essay|speech|treaty|constitution|declaration/i.test(title)) return "light-novel";
+  return "light-novel";
 }
 
 function toItem(lang: Lang, hit: SearchHit): MediaItem {
@@ -78,7 +78,7 @@ export const wikisource: ProviderAdapter = {
   id: "wikisource",
   label: "Wikisource",
   attribution: "Public-domain texts from Wikisource",
-  categories: ["web-novel", "light-novel", "wuxia", "graphic-novel"],
+  categories: ["light-novel"],
 
   async search(query, limit = 20) {
     const out: MediaItem[] = [];

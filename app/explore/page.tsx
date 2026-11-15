@@ -65,12 +65,14 @@ export default async function ExplorePage({
         </div>
       </div>
 
-      <div className="scroll-x -mx-1 px-1">
+      {/* All five categories must be visible at once — a scrolling rail hid
+          "Webtoons" and "Light Novels" behind the right edge on phones. */}
+      <div className="flex flex-wrap gap-x-1.5 gap-y-1.5">
         {CATEGORIES.map((c) => (
           <Link
             key={c.id}
             href={`/explore${qs({ category: c.id, sort, view })}`}
-            className="nav-link shrink-0"
+            className="nav-link"
             data-active={c.id === category}
           >
             {c.label}

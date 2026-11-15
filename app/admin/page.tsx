@@ -12,7 +12,7 @@ const ALL_SECTIONS = [
   ["popular-manga", "Popular manga"],
   ["popular-manhwa", "Popular manhwa"],
   ["popular-manhua", "Popular manhua"],
-  ["visual-novels", "Visual novels"],
+  ["official-webtoons", "Official webtoons"],
   ["mangadex-trending", "Latest updates"],
   ["novels", "Novels & books"],
   ["hidden-gems", "Hidden gems"],

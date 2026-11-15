@@ -52,13 +52,14 @@ interface AniMedia {
 
 const FORMAT_MAP: Record<string, Category> = {
   MANGA: "manga",
-  ONE_SHOT: "one-shot",
+  ONE_SHOT: "manga",
   NOVEL: "light-novel",
 };
 
 function countryToCategory(country: string | null, format: string | null): Category {
-  if (format === "ONE_SHOT") return "one-shot";
-  if (format === "NOVEL") return country === "KR" ? "web-novel" : "light-novel";
+  // One-shots live under Manga; Korean/Chinese novels are light novels here.
+  if (format === "ONE_SHOT") return "manga";
+  if (format === "NOVEL") return "light-novel";
   if (country === "KR") return "manhwa";
   if (country === "CN" || country === "TW") return "manhua";
   return FORMAT_MAP[format ?? ""] ?? "manga";
@@ -134,7 +135,7 @@ export const anilist: ProviderAdapter = {
   id: "anilist",
   label: "AniList",
   attribution: "Metadata from AniList (anilist.co)",
-  categories: ["manga", "manhwa", "manhua", "one-shot", "light-novel", "web-novel", "doujinshi"],
+  categories: ["manga", "manhwa", "manhua", "webtoon", "light-novel"],
 
   async search(query, limit = 20) {
     const media = await run({ search: query, page: 1, perPage: Math.min(limit, 25) });
@@ -163,8 +164,7 @@ export const anilist: ProviderAdapter = {
           : category === "manga"
             ? "JP"
             : undefined;
-    const format =
-      category === "one-shot" ? "ONE_SHOT" : category === "light-novel" || category === "web-novel" ? "NOVEL" : undefined;
+    const format = category === "light-novel" ? "NOVEL" : undefined;
 
     const data = await fetchJson<{ data: { Page: { media: AniMedia[] } } }>(ENDPOINT, {
       method: "POST",

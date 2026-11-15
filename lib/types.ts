@@ -1,37 +1,24 @@
-export type Category =
-  | "manga"
-  | "manhwa"
-  | "manhua"
-  | "webtoon"
-  | "light-novel"
-  | "web-novel"
-  | "visual-novel"
-  | "doujinshi"
-  | "comic"
-  | "graphic-novel"
-  | "wuxia"
-  | "one-shot";
+/**
+ * SUMI is a manga-family library: these five are the whole taxonomy. Anything
+ * else (visual novels, western comics, one-shots) was deliberately removed so
+ * every provider, filter and reader speaks the same five languages.
+ */
+export type Category = "manga" | "manhwa" | "manhua" | "webtoon" | "light-novel";
 
-export const CATEGORIES: { id: Category; label: string; kind: "comic" | "prose" | "vn" }[] = [
-  { id: "manga", label: "Manga", kind: "comic" },
-  { id: "manhwa", label: "Manhwa", kind: "comic" },
-  { id: "manhua", label: "Manhua", kind: "comic" },
-  { id: "webtoon", label: "Webtoons", kind: "comic" },
-  { id: "light-novel", label: "Light Novels", kind: "prose" },
-  { id: "web-novel", label: "Web Novels", kind: "prose" },
-  { id: "visual-novel", label: "Visual Novels", kind: "vn" },
-  { id: "doujinshi", label: "Doujinshi", kind: "comic" },
-  { id: "comic", label: "Comics", kind: "comic" },
-  { id: "graphic-novel", label: "Graphic Novels", kind: "comic" },
-  { id: "wuxia", label: "Wuxia / Xianxia", kind: "prose" },
-  { id: "one-shot", label: "One-shots", kind: "comic" },
+export const CATEGORIES: { id: Category; label: string; kind: "comic" | "prose"; short: string }[] = [
+  { id: "manga", label: "Manga", kind: "comic", short: "Japanese" },
+  { id: "manhwa", label: "Manhwa", kind: "comic", short: "Korean" },
+  { id: "manhua", label: "Manhua", kind: "comic", short: "Chinese" },
+  { id: "webtoon", label: "Webtoons", kind: "comic", short: "Vertical scroll" },
+  { id: "light-novel", label: "Light Novels", kind: "prose", short: "Prose" },
 ];
 
 export type Provider =
   | "anilist"
   | "mangadex"
+  | "mangaupdates"
+  | "webtoon"
   | "openlibrary"
-  | "vndb"
   | "gutenberg"
   | "wikisource"
   | "manual";
@@ -99,7 +86,7 @@ export interface AppData {
   };
 }
 
-export function mediaKind(c: Category): "comic" | "prose" | "vn" {
+export function mediaKind(c: Category): "comic" | "prose" {
   return CATEGORIES.find((x) => x.id === c)?.kind ?? "comic";
 }
 
@@ -128,18 +115,11 @@ export function imgUrl(url: string | null | undefined): string | null {
  * filtering only — de-duplication still requires an exact title match.
  */
 const FAMILY: Record<Category, Category[]> = {
-  manga: ["manga", "one-shot", "doujinshi"],
+  manga: ["manga"],
   manhwa: ["manhwa", "webtoon"],
   manhua: ["manhua"],
   webtoon: ["webtoon", "manhwa"],
   "light-novel": ["light-novel"],
-  "web-novel": ["web-novel", "light-novel"],
-  "visual-novel": ["visual-novel"],
-  doujinshi: ["doujinshi", "manga"],
-  comic: ["comic", "graphic-novel"],
-  "graphic-novel": ["graphic-novel", "comic"],
-  wuxia: ["wuxia"],
-  "one-shot": ["one-shot", "manga"],
 };
 
 export function categoryFamily(c: Category): Category[] {

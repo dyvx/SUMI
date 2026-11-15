@@ -435,7 +435,7 @@ function NoTextState({ item }: { item: MediaItem }) {
           collection — real text from Project Gutenberg.
         </p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
-          <Link href="/explore?category=web-novel" className="btn btn-primary">Browse readable books</Link>
+          <Link href="/explore?category=light-novel" className="btn btn-primary">Browse readable books</Link>
           <Link href={`/title/${encodeURIComponent(item.id)}`} className="btn btn-glass">Back to details</Link>
         </div>
       </div>

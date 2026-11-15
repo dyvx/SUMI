@@ -17,7 +17,7 @@ const DEFAULT: AppData = {
       "popular-manga",
       "popular-manhwa",
       "popular-manhua",
-      "visual-novels",
+      "official-webtoons",
       "mangadex-trending",
       "novels",
       "hidden-gems",

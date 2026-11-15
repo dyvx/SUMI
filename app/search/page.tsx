@@ -40,8 +40,8 @@ export default async function SearchPage({
         <div className="glass-panel px-5 py-10 text-center">
           <p className="text-[14px] font-semibold">Search everything at once</p>
           <p className="mx-auto mt-1 max-w-md text-[13px] text-white/45">
-            One query hits AniList (manga, manhwa, manhua, one-shots, novels), MangaDex (comics),
-            VNDB (visual novels) and Open Library (books), then merges duplicates.
+            One query hits MangaDex and WEBTOON for readable pages, and MangaUpdates, AniList,
+            Gutenberg, Wikisource and Open Library for metadata — then merges duplicates.
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {["berserk", "solo leveling", "dune", "steins gate", "one piece"].map((s) => (

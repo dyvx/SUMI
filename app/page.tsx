@@ -112,7 +112,7 @@ export default async function HomePage() {
       </Reveal>
 
       <p className="px-1 text-center text-[11px] leading-relaxed text-white/25">
-        Metadata from AniList, MangaDex, VNDB and Open Library. Public-domain texts from Project
+        Readable pages from MangaDex and WEBTOON. Metadata from MangaUpdates, AniList and Open Library. Public-domain texts from Project
         Gutenberg. Animus does not host or distribute copyrighted reading material.
       </p>
     </div>

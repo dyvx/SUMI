@@ -4,12 +4,25 @@ import { mangadex } from "./providers/mangadex";
 import { openlibrary } from "./providers/openlibrary";
 import { gutenberg } from "./providers/gutenberg";
 import { wikisource } from "./providers/wikisource";
-import { vndb } from "./providers/vndb";
+import { mangaupdates } from "./providers/mangaupdates";
+import { webtoon } from "./providers/webtoon";
 import type { ProviderAdapter } from "./providers/base";
 import { CATEGORIES, categoryFamily, mediaKind, normalizeTitle } from "./types";
 import type { Category, MediaItem, Provider } from "./types";
 
-export const PROVIDERS: ProviderAdapter[] = [gutenberg, wikisource, anilist, mangadex, vndb, openlibrary];
+/**
+ * Order matters: reading sources first, metadata spines next, prose sources last.
+ * Every provider here speaks the same five categories.
+ */
+export const PROVIDERS: ProviderAdapter[] = [
+  mangadex,
+  webtoon,
+  mangaupdates,
+  anilist,
+  gutenberg,
+  wikisource,
+  openlibrary,
+];
 
 /** Per-provider health, updated on every live call. */
 export interface Health {
@@ -187,33 +200,43 @@ export async function buildHomeRows(): Promise<{ rows: Row[]; degraded: Provider
     }
   };
 
-  const [aniTrending, mdTrending, vnTop, books, publicDomain, wiki] = await Promise.all([
-    safe("anilist", () => anilist.trending!(12)),
-    safe("mangadex", () => mangadex.trending!(12)),
-    safe("vndb", () => vndb.trending!(10)),
+  const [aniTrending, mdTrending, wtTrending, books, publicDomain, wiki] = await Promise.all([
+    safe("anilist", () => anilist.trending!(14)),
+    safe("mangadex", () => mangadex.trending!(14)),
+    safe("webtoon", () => webtoon.trending!(14)),
     safe("openlibrary", () => openlibrary.search("light novel", 10)),
     safe("gutenberg", () => gutenberg.trending!(14)),
     safe("wikisource", () => wikisource.search("literature", 10)),
   ]);
 
-  const pool = [...aniTrending, ...mdTrending, ...vnTop, ...books].filter((m) => m.cover);
-  const byCat = (c: Category) => pool.filter((m) => m.category === c).slice(0, 10);
+  const pool = [...aniTrending, ...mdTrending, ...wtTrending, ...books].filter((m) => m.cover);
+  const byCat = (c: Category) => pool.filter((m) => m.category === c).slice(0, 12);
 
   const rows: Row[] = [
-    { id: "public-domain", title: "Read in full — public domain", subtitle: "Complete books with real text, free and legal", items: publicDomain },
-    { id: "wikisource", title: "From Wikisource", subtitle: "Public-domain works across languages", items: wiki },
-    { id: "trending", title: "Trending now", subtitle: "What the world is reading", items: aniTrending.slice(0, 12) },
-    { id: "popular-manga", title: "Popular manga", subtitle: "Japanese serializations", items: byCat("manga") },
-    { id: "popular-manhwa", title: "Popular manhwa", subtitle: "Korean webcomics", items: byCat("manhwa") },
-    { id: "popular-manhua", title: "Popular manhua", subtitle: "Chinese comics", items: byCat("manhua") },
-    { id: "visual-novels", title: "Visual novels", subtitle: "Interactive fiction from VNDB", items: vnTop.slice(0, 10) },
+    {
+      id: "readable-now",
+      title: "Readable right now",
+      subtitle: "Titles with pages we can actually open",
+      items: [...mdTrending, ...wtTrending].filter((m) => m.cover && m.readable).slice(0, 14),
+    },
+    {
+      id: "public-domain",
+      title: "Light novels — read in full",
+      subtitle: "Complete public-domain books with real text",
+      items: publicDomain,
+    },
+    { id: "trending", title: "Trending manga", subtitle: "What the world is reading", items: byCat("manga") },
+    { id: "popular-manhwa", title: "Manhwa", subtitle: "Korean webcomics and vertical scroll", items: byCat("manhwa") },
+    { id: "popular-manhua", title: "Manhua", subtitle: "Chinese comics and cultivation epics", items: byCat("manhua") },
+    { id: "official-webtoons", title: "Official webtoons", subtitle: "Free episodes on WEBTOON", items: byCat("webtoon") },
+    { id: "light-novels", title: "Light novels", subtitle: "Prose from Open Library", items: books.slice(0, 12) },
     { id: "mangadex-trending", title: "Latest updates", subtitle: "Freshly followed on MangaDex", items: mdTrending.slice(0, 12) },
-    { id: "novels", title: "Novels & books", subtitle: "From Open Library", items: books.slice(0, 10) },
+    { id: "wikisource", title: "From Wikisource", subtitle: "Public-domain works across languages", items: wiki },
     {
       id: "hidden-gems",
       title: "Hidden gems",
       subtitle: "Under-discovered picks",
-      items: pool.filter((m) => m.genres.some((g) => HIDDEN_GEM_GENRES.includes(g))).slice(0, 10),
+      items: pool.filter((m) => m.genres.some((g) => HIDDEN_GEM_GENRES.includes(g))).slice(0, 12),
     },
     {
       id: "top-rated",

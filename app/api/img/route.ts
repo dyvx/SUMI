@@ -21,6 +21,8 @@ const ALLOWED_HOSTS = [
   "www.gutenberg.org",
   "gutenberg.org",
   "t.vndb.org",
+  "cdn.mangaupdates.com",
+  "webtoon-phinf.pstatic.net",
   "librivox.org",
 ];
 
@@ -46,8 +48,17 @@ export async function GET(req: Request) {
   }
 
   const host = target.hostname;
-  // MangaDex's CDN checks Referer on some nodes; Amazon's does not care.
-  const referer = /mangadex\.(org|network)$/i.test(host) ? "https://mangadex.org/" : undefined;
+  /*
+   * Referer policy, learned the hard way:
+   *  - MangaDex serves a plain client UA and refuses anything browser-like.
+   *  - Naver's pstatic CDN (WEBTOON images) is the opposite: it 403s every
+   *    request that has no webtoons.com Referer, so the referer is mandatory.
+   */
+  const referer = /webtoon-phinf\.pstatic\.net$/i.test(host)
+    ? "https://www.webtoons.com/"
+    : /mangadex\.(org|network)$/i.test(host)
+      ? "https://mangadex.org/"
+      : undefined;
 
   async function attempt(): Promise<Response> {
     const ctrl = new AbortController();
@@ -59,7 +70,9 @@ export async function GET(req: Request) {
           // Important: MangaDex's image CDN answers 403 to *browser-like*
           // User-Agents from datacentre IPs but serves a plain client UA fine.
           // Impersonating a browser here is what broke every cover and page.
-          "User-Agent": "Animus/1.0 (+https://sumi-ruby.vercel.app)",
+          "User-Agent": /pstatic\.net$/i.test(host)
+            ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+            : "Animus/1.0 (+https://sumi-ruby.vercel.app)",
           Accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
           "Accept-Encoding": "identity",
           ...(referer ? { Referer: referer } : {}),

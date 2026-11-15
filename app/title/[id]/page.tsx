@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getById } from "@/lib/catalog";
+import { enrichItem } from "@/lib/enrich";
 import { mangadexChapters } from "@/lib/providers/mangadex";
 import { gutenbergChapters } from "@/lib/providers/gutenberg";
 import { wikisourceChapters } from "@/lib/providers/wikisource";
@@ -25,7 +26,9 @@ interface TocEntry {
 
 export default async function TitlePage({ params }: { params: { id: string } }) {
   const id = decodeURIComponent(params.id);
-  const item = await getById(id);
+  const found = await getById(id);
+  // Merge in what other databases know (score, genres, authors, alt titles).
+  const item = found ? (await enrichItem(found)).item : null;
   if (!item) notFound();
 
   trackRecent(item).catch(() => {});
@@ -41,11 +44,9 @@ export default async function TitlePage({ params }: { params: { id: string } }) 
   const readable = item.readable === true;
 
   const base =
-    kind === "vn"
-      ? `/reader/vn/${encodeURIComponent(item.id)}`
-      : kind === "comic"
-        ? `/reader/comic/${encodeURIComponent(item.id)}`
-        : `/reader/novel/${encodeURIComponent(item.id)}`;
+    kind === "comic"
+      ? `/reader/comic/${encodeURIComponent(item.id)}`
+      : `/reader/novel/${encodeURIComponent(item.id)}`;
 
   // Build a real table of contents per source.
   let toc: TocEntry[] = [];
@@ -154,7 +155,7 @@ export default async function TitlePage({ params }: { params: { id: string } }) 
           )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Link href={base} className="btn btn-primary">
-              {progress ? `Continue · Ch. ${progress.chapter}` : kind === "vn" ? "Open scene" : "Start reading"}
+              {progress ? `Continue · Ch. ${progress.chapter}` : false ? "Open scene" : "Start reading"}
             </Link>
             <LibraryButtons item={item} initial={entry?.status ?? null} />
             {item.sourceUrl && (

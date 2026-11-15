@@ -16,11 +16,18 @@ interface Page {
   page: number;
   fallback?: string;
 }
+type SourceKind = "mangadex" | "webtoon";
+interface Cand {
+  provider?: SourceKind;
+  mangadexId: string;
+  title: string;
+  chapters: number;
+  score: number;
+}
 interface Resolution {
-  source?: "mangadex";
   found: boolean;
-  best: { mangadexId: string; title: string; chapters: number; score: number } | null;
-  candidates: { mangadexId: string; title: string; chapters: number; score: number }[];
+  best: Cand | null;
+  candidates: Cand[];
   reason?: string;
 }
 
@@ -38,7 +45,12 @@ export function ComicReader({
 }) {
   const [phase, setPhase] = useState<Phase>("resolving");
   const [resolution, setResolution] = useState<Resolution | null>(null);
-  const isNative = item.provider === "mangadex";
+  const isNative = item.provider === "mangadex" || item.provider === "webtoon";
+  // Which reading source the pages will come from. Native titles start on their
+  // own provider; metadata-only titles get whatever resolve() finds.
+  const [kind, setKind] = useState<SourceKind>(
+    item.provider === "webtoon" ? "webtoon" : "mangadex"
+  );
   const [sourceId, setSourceId] = useState<string | null>(isNative ? item.providerId : null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [chapterId, setChapterId] = useState<string | null>(initialChapter ?? null);
@@ -66,6 +78,7 @@ export function ComicReader({
       .then((d: Resolution) => {
         if (!alive) return;
         setResolution(d);
+        if (d.best?.provider) setKind(d.best.provider);
         if (d.found && d.best) {
           setSourceId(d.best.mangadexId);
           setPhase("loading");
@@ -84,7 +97,11 @@ export function ComicReader({
   useEffect(() => {
     if (!sourceId) return;
     let alive = true;
-    fetch(`/api/chapter?mangaId=${encodeURIComponent(sourceId)}`)
+    const listUrl =
+      kind === "webtoon"
+        ? `/api/chapter?webtoonId=${encodeURIComponent(sourceId)}`
+        : `/api/chapter?mangaId=${encodeURIComponent(sourceId)}`;
+    fetch(listUrl)
       .then((r) => r.json())
       .then((d) => {
         if (!alive) return;
@@ -101,7 +118,7 @@ export function ComicReader({
     return () => {
       alive = false;
     };
-  }, [sourceId]);
+  }, [sourceId, kind]);
 
   /* ---------- 3. load pages ---------- */
   useEffect(() => {
@@ -109,7 +126,11 @@ export function ComicReader({
     let alive = true;
     setPhase("loading");
     setError(null);
-    fetch(`/api/chapter?chapterId=${encodeURIComponent(chapterId)}`)
+    const pagesUrl =
+      kind === "webtoon"
+        ? `/api/chapter?webtoonUrl=${encodeURIComponent(chapterId)}`
+        : `/api/chapter?chapterId=${encodeURIComponent(chapterId)}`;
+    fetch(pagesUrl)
       .then((r) => r.json())
       .then((d) => {
         if (!alive) return;
@@ -126,7 +147,7 @@ export function ComicReader({
     return () => {
       alive = false;
     };
-  }, [chapterId]);
+  }, [chapterId, kind]);
 
   const chapterNumber = useMemo(() => {
     const c = chapters.find((x) => x.id === chapterId);
@@ -609,7 +630,7 @@ function NoSourceState({
       )}
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <Link href="/explore?category=web-novel" className="btn btn-primary">
+        <Link href="/explore?category=light-novel" className="btn btn-primary">
           Readable books
         </Link>
         <Link href={`/title/${encodeURIComponent(item.id)}`} className="btn btn-glass">

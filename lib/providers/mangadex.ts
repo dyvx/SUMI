@@ -31,7 +31,7 @@ function pickLang(map: Record<string, string> | undefined): string | null {
 function categoryFor(m: MdManga): Category {
   const lang = m.attributes.originalLanguage;
   const tags = m.attributes.tags.map((t) => t.attributes.name.en?.toLowerCase() ?? "");
-  if (tags.some((t) => t.includes("doujinshi"))) return "doujinshi";
+  if (tags.some((t) => t.includes("doujinshi"))) return "manga";
   if (lang === "ko") return tags.some((t) => t === "long strip") ? "webtoon" : "manhwa";
   if (lang === "zh") return "manhua";
   return "manga";
@@ -94,7 +94,7 @@ export const mangadex: ProviderAdapter = {
   id: "mangadex",
   label: "MangaDex",
   attribution: "Metadata from MangaDex (mangadex.org)",
-  categories: ["manga", "manhwa", "manhua", "webtoon", "doujinshi", "one-shot"],
+  categories: ["manga", "manhwa", "manhua", "webtoon"],
 
   async search(query, limit = 20) {
     const url = `${API}/manga?limit=${Math.min(limit, 25)}&title=${encodeURIComponent(
